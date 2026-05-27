@@ -133,9 +133,9 @@ class ContractUpload(BaseModel):
 
 class InvoiceItemResponse(BaseModel):
     id: int
-    item_name: str
+    item_name: Optional[str]
     item_quantity: Decimal
-    item_unit: str
+    item_unit: Optional[str]
     item_price: Decimal
     item_amount: Decimal
 
@@ -197,8 +197,8 @@ class InvoiceBatchVerifyRequest(BaseModel):
 
 class ReimbursementItemResponse(BaseModel):
     id: int
-    item_name: str
-    category: str
+    item_name: Optional[str]
+    category: Optional[str]
     amount: Decimal
     invoice_id: Optional[int]
     description: Optional[str]

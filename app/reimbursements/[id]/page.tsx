@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
 import { apiClient } from '@/lib/api/client';
+import { API_ENDPOINTS } from '@/lib/api/config';
 import { AlertCircle, ArrowLeft, CheckCircle2, Receipt, RefreshCw, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useCurrentUser } from '@/hooks/useData';
@@ -27,7 +28,7 @@ export default function ReimbursementDetailPage() {
 
     try {
       setIsLoading(true);
-      const response = (await apiClient.get(`/reimbursements/${id}`)) as any;
+      const response = (await apiClient.get(API_ENDPOINTS.REIMBURSEMENTS_GET(Number(id)))) as any;
       setReimbursement(response);
       setError(null);
     } catch (err: any) {
@@ -47,7 +48,7 @@ export default function ReimbursementDetailPage() {
   }, [reimbursement]);
 
   const canReview = currentUser?.role === 'admin' || currentUser?.role === 'reviewer';
-  const canVerify = currentUser?.role === 'admin' || reimbursement?.submitter_id === currentUser?.id;
+  const canVerify = canReview || reimbursement?.submitter_id === currentUser?.id;
 
   const runAction = async (action: 'verify' | 'approve' | 'reject') => {
     if (!id) return;
@@ -56,15 +57,15 @@ export default function ReimbursementDetailPage() {
 
     try {
       if (action === 'verify') {
-        await apiClient.post(`/reimbursements/${id}/verify`);
+        await apiClient.post(API_ENDPOINTS.REIMBURSEMENTS_VERIFY(Number(id)));
       }
       if (action === 'approve') {
-        await apiClient.put(`/reimbursements/${id}/approve`, undefined, {
+        await apiClient.put(API_ENDPOINTS.REIMBURSEMENTS_APPROVE(Number(id)), undefined, {
           params: { approval_notes: approvalNotes },
         });
       }
       if (action === 'reject') {
-        await apiClient.put(`/reimbursements/${id}/reject`, undefined, {
+        await apiClient.put(API_ENDPOINTS.REIMBURSEMENTS_REJECT(Number(id)), undefined, {
           params: { rejection_reason: rejectionReason || '审批驳回' },
         });
       }
