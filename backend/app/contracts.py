@@ -16,7 +16,7 @@ import uuid
 
 router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 
-CONTRACT_EXTENSIONS = {".pdf", ".doc", ".docx"}
+CONTRACT_EXTENSIONS = {".pdf", ".docx"}
 
 
 def extract_pdf_text(file_path: str) -> str:
@@ -27,16 +27,37 @@ def extract_pdf_text(file_path: str) -> str:
         with open(file_path, 'rb') as f:
             pdf_reader = PyPDF2.PdfReader(f)
             for page in pdf_reader.pages:
-                text += page.extract_text()
+                text += page.extract_text() or ""
         return text
     except:
         return ""
 
 
+def extract_docx_text(file_path: str) -> str:
+    """从 DOCX 提取文本"""
+    try:
+        from docx import Document
+
+        document = Document(file_path)
+        paragraphs = [paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()]
+        table_cells = []
+        for table in document.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if cell.text.strip():
+                        table_cells.append(cell.text.strip())
+        return "\n".join(paragraphs + table_cells)
+    except Exception:
+        return ""
+
+
 def extract_contract_text(file_path: str) -> str:
-    """从合同文件中提取文本，暂时完整支持 PDF，Word 作为待增强能力。"""
-    if get_file_extension(file_path) == ".pdf":
+    """从合同文件中提取文本"""
+    extension = get_file_extension(file_path)
+    if extension == ".pdf":
         return extract_pdf_text(file_path)
+    if extension == ".docx":
+        return extract_docx_text(file_path)
     return ""
 
 
@@ -54,7 +75,7 @@ async def upload_contract(
     if get_file_extension(file.filename) not in CONTRACT_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only PDF, DOC and DOCX contract files are supported"
+            detail="Only PDF and DOCX contract files are supported"
         )
     
     # 保存文件
@@ -88,6 +109,14 @@ async def upload_contract(
     
     # 提取合同文本
     contract_text = extract_contract_text(file_path)
+    if not contract_text.strip():
+        contract.status = "error"
+        contract.analysis_error = "未能从合同文件中提取可分析文本，请上传可复制文本的 PDF 或 DOCX 文件"
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=contract.analysis_error
+        )
     
     task_id = str(uuid.uuid4())
     db.add(AsyncTask(

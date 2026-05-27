@@ -38,15 +38,14 @@ export default function ContractUploadPage() {
     if (selectedFile) {
       const allowedTypes = [
         'application/pdf',
-        'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       ];
-      const allowedExtensions = ['.pdf', '.doc', '.docx'];
+      const allowedExtensions = ['.pdf', '.docx'];
       const lowerName = selectedFile.name.toLowerCase();
       const hasAllowedExtension = allowedExtensions.some((extension) => lowerName.endsWith(extension));
 
       if (!allowedTypes.includes(selectedFile.type) && !hasAllowedExtension) {
-        setError('请选择 PDF、DOC 或 DOCX 合同文件');
+        setError('请选择 PDF 或 DOCX 合同文件');
         return;
       }
       setFile(selectedFile);
@@ -105,7 +104,7 @@ export default function ContractUploadPage() {
         <Card>
           <CardHeader>
             <CardTitle>合同文件</CardTitle>
-            <CardDescription>支持 PDF、DOC 和 DOCX 格式，最大 50MB</CardDescription>
+            <CardDescription>支持 PDF 和 DOCX 格式，最大 50MB</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {!taskId ? (
@@ -115,7 +114,7 @@ export default function ContractUploadPage() {
                      onClick={() => document.getElementById('file-input')?.click()}>
                   <Upload className="w-12 h-12 mx-auto mb-2 text-muted-foreground" />
                   <p className="font-medium mb-1">点击选择文件或拖拽上传</p>
-                  <p className="text-sm text-muted-foreground mb-4">支持 PDF、DOC、DOCX 格式</p>
+                  <p className="text-sm text-muted-foreground mb-4">支持 PDF、DOCX 格式</p>
                   {file && (
                     <p className="text-sm text-green-600 font-medium">
                       已选择: {file.name}
@@ -126,7 +125,7 @@ export default function ContractUploadPage() {
                 <input
                   id="file-input"
                   type="file"
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf,.docx"
                   onChange={handleFileChange}
                   className="hidden"
                 />

@@ -11,8 +11,135 @@ from utils.file_handler import get_file_extension
 from datetime import datetime
 import json
 import logging
+import re
 
 logger = logging.getLogger(__name__)
+
+
+def _create_progress(db, task_id: int, percentage: int, step: str, message: str):
+    progress = TaskProgress(
+        task_id=task_id,
+        progress_percentage=percentage,
+        current_step=step,
+        status_message=message
+    )
+    db.add(progress)
+    db.commit()
+    return progress
+
+
+def _normalize_severity(value: str) -> str:
+    severity = (value or "").strip().lower()
+    mapping = {
+        "低": "low",
+        "中": "medium",
+        "高": "high",
+        "严重": "critical",
+        "critical": "critical",
+        "high": "high",
+        "medium": "medium",
+        "low": "low",
+    }
+    return mapping.get(severity, "medium")
+
+
+def _risk_level_from_score(score: int) -> str:
+    if score >= 80:
+        return "critical"
+    if score >= 60:
+        return "high"
+    if score >= 30:
+        return "medium"
+    return "low"
+
+
+def _run_contract_rule_engine(contract_text: str) -> dict:
+    text = contract_text or ""
+    compact_text = re.sub(r"\s+", "", text)
+    violations = []
+
+    def add_violation(risk_type: str, severity: str, description: str, suggestion: str, highlighted_text: str = ""):
+        violations.append({
+            "type": risk_type,
+            "severity": severity,
+            "description": description,
+            "suggestion": suggestion,
+            "highlighted_text": highlighted_text,
+        })
+
+    payment_days = [int(match) for match in re.findall(r"(?:付款|支付|结算)[^。\n]{0,20}?(\d{2,3})\s*(?:个)?(?:自然日|工作日|日|天)", text)]
+    if payment_days and max(payment_days) > 60:
+        add_violation(
+            "payment_term",
+            "high",
+            f"合同约定最长付款周期为 {max(payment_days)} 天，可能带来现金流压力。",
+            "建议将付款周期控制在 30-60 天内，并明确逾期付款责任。",
+        )
+
+    if "违约" not in compact_text and "赔偿" not in compact_text:
+        add_violation(
+            "penalty_clause",
+            "high",
+            "未发现明确的违约责任或赔偿条款。",
+            "建议补充违约场景、责任承担方式、赔偿范围和违约金计算方式。",
+        )
+
+    if (
+        not any(keyword in compact_text for keyword in ("发票", "税率", "增值税", "专票", "普票"))
+        or any(keyword in compact_text for keyword in ("未约定发票", "未明确发票", "无发票条款"))
+    ):
+        add_violation(
+            "tax_invoice",
+            "medium",
+            "未发现发票或税率相关约定。",
+            "建议明确发票类型、开票时间、税率、价税合计以及税务变更处理方式。",
+        )
+
+    if (
+        ("保险" not in compact_text and "保函" not in compact_text)
+        or any(keyword in compact_text for keyword in ("未约定保险", "未明确保险", "无保险条款"))
+    ):
+        add_violation(
+            "insurance",
+            "medium",
+            "未发现保险或履约保障条款。",
+            "如合同涉及服务交付、施工、运输或高价值标的，建议补充保险或履约保障要求。",
+        )
+
+    if "保密" not in compact_text or any(keyword in compact_text for keyword in ("未约定保密", "未明确保密", "无保密条款")):
+        add_violation(
+            "confidentiality",
+            "medium",
+            "未发现保密条款。",
+            "建议补充保密范围、保密期限、例外情形和泄密责任。",
+        )
+
+    if (
+        not any(keyword in compact_text for keyword in ("争议解决", "仲裁", "管辖法院", "诉讼"))
+        or any(keyword in compact_text for keyword in ("未约定争议解决", "未明确争议解决", "无争议解决条款"))
+    ):
+        add_violation(
+            "dispute_resolution",
+            "medium",
+            "未发现争议解决条款。",
+            "建议明确争议解决方式、管辖法院或仲裁机构。",
+        )
+
+    severity_weight = {"low": 8, "medium": 15, "high": 25, "critical": 40}
+    score = min(100, sum(severity_weight.get(v["severity"], 15) for v in violations))
+    if any(v["severity"] == "critical" for v in violations):
+        risk_level = "critical"
+    elif any(v["severity"] == "high" for v in violations):
+        risk_level = "high"
+    else:
+        risk_level = _risk_level_from_score(score)
+
+    return {
+        "checked_clauses": ["payment_terms", "penalty", "tax_invoice", "insurance", "confidentiality", "dispute_resolution"],
+        "violations": violations,
+        "risk_score": score,
+        "risk_level": risk_level,
+    }
 
 
 @celery_app.task(bind=True, name="invoice.ocr_recognition")
@@ -277,30 +404,34 @@ def contract_analyze_risks(self, contract_id: int, contract_text: str):
         if not contract:
             raise ValueError(f"Contract {contract_id} not found")
         
-        # 阶段 1：规则引擎检测 (30%)
-        progress = TaskProgress(
-            task_id=task.id,
-            progress_percentage=30,
-            current_step="Rule engine analysis",
-            status_message="Checking contract against compliance rules..."
-        )
-        db.add(progress)
+        contract.status = "analyzing"
+        contract.analysis_started_at = datetime.utcnow()
         db.commit()
-        
-        rule_engine_result = {
-            "checked_clauses": ["payment_terms", "penalty", "tax", "insurance"],
-            "violations": []
-        }
+
+        if not contract_text or len(contract_text.strip()) < 20:
+            contract.status = "error"
+            contract.analysis_error = "合同文本过短或为空，无法进行风险分析"
+            db.commit()
+            raise ValueError(contract.analysis_error)
+
+        _create_progress(
+            db,
+            task.id,
+            30,
+            "Rule engine analysis",
+            "Checking contract against built-in compliance rules..."
+        )
+
+        rule_engine_result = _run_contract_rule_engine(contract_text)
         
         # 阶段 2：LLM 语义分析 (70%)
-        progress = TaskProgress(
-            task_id=task.id,
-            progress_percentage=70,
-            current_step="LLM semantic analysis",
-            status_message="Analyzing contract semantics with AI..."
+        _create_progress(
+            db,
+            task.id,
+            70,
+            "LLM semantic analysis",
+            "Analyzing contract semantics with AI..."
         )
-        db.add(progress)
-        db.commit()
         
         llm_result = volcano_client.analyze_contract_with_llm(contract_text)
         if llm_result.get("status") == "error":
@@ -310,9 +441,13 @@ def contract_analyze_risks(self, contract_id: int, contract_text: str):
             raise ValueError(contract.analysis_error or "Contract analysis failed")
         
         # 合并结果
-        combined_risks = llm_result.get("risks", [])
-        risk_score = llm_result.get("risk_score", 50)
-        risk_level = llm_result.get("risk_level", "medium")
+        rule_risks = rule_engine_result.get("violations", [])
+        llm_risks = llm_result.get("risks", [])
+        combined_risks = rule_risks + llm_risks
+        llm_score = int(llm_result.get("risk_score") or 0)
+        rule_score = int(rule_engine_result.get("risk_score") or 0)
+        risk_score = min(100, max(rule_score, llm_score))
+        risk_level = rule_engine_result.get("risk_level") if rule_score >= llm_score else _risk_level_from_score(risk_score)
         
         # 更新合同记录
         contract.status = "completed"
@@ -324,32 +459,35 @@ def contract_analyze_risks(self, contract_id: int, contract_text: str):
         contract.analysis_result = {
             "risks": combined_risks,
             "risk_score": risk_score,
-            "risk_level": risk_level
+            "risk_level": risk_level,
+            "rule_engine_result": rule_engine_result,
+            "llm_analysis_result": llm_result,
         }
         
         # 创建风险记录
         from models import ContractRisk
+        db.query(ContractRisk).filter(ContractRisk.contract_id == contract_id).delete()
         for risk in combined_risks:
             contract_risk = ContractRisk(
                 contract_id=contract_id,
                 risk_type=risk.get("type"),
-                severity=risk.get("severity"),
+                severity=_normalize_severity(risk.get("severity")),
                 description=risk.get("description"),
-                detection_method="llm",
+                highlighted_text=risk.get("highlighted_text"),
+                detection_method="rule_engine" if risk in rule_risks else "llm",
                 remediation_suggestion=risk.get("suggestion")
             )
             db.add(contract_risk)
         
         db.commit()
         
-        # 完成任务
-        progress = TaskProgress(
-            task_id=task.id,
-            progress_percentage=100,
-            current_step="Analysis completed",
-            status_message=f"Risk score: {risk_score}, Level: {risk_level}"
+        _create_progress(
+            db,
+            task.id,
+            100,
+            "Analysis completed",
+            f"Risk score: {risk_score}, Level: {risk_level}"
         )
-        db.add(progress)
         
         task.status = "completed"
         task.completed_at = datetime.utcnow()
