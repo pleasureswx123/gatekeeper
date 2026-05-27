@@ -77,6 +77,11 @@ def create_reimbursement(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Invoice {invoice_id} not found"
                 )
+            if invoice.ocr_status != "completed":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invoice {invoice_id} OCR is not completed"
+                )
 
         item = ReimbursementItem(
             reimbursement_id=db_reimbursement.id,

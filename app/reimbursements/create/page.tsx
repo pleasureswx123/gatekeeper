@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
 import { apiClient } from '@/lib/api/client';
+import { API_ENDPOINTS } from '@/lib/api/config';
 import { useInvoices } from '@/hooks/useData';
 import { ArrowLeft, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
@@ -32,7 +33,7 @@ export default function CreateReimbursementPage() {
   });
 
   const availableInvoices = useMemo(() => {
-    return invoices.filter((invoice: any) => invoice.status !== 'error');
+    return invoices.filter((invoice: any) => invoice.ocr_status === 'completed');
   }, [invoices]);
 
   const handleItemChange = (index: number, field: keyof FormItem, value: string) => {
@@ -82,7 +83,7 @@ export default function CreateReimbursementPage() {
         })),
       };
 
-      const response = (await apiClient.post('/reimbursements', submitData)) as any;
+      const response = (await apiClient.post(API_ENDPOINTS.REIMBURSEMENTS_CREATE, submitData)) as any;
       setSuccess(true);
 
       setTimeout(() => {
@@ -200,7 +201,7 @@ export default function CreateReimbursementPage() {
                         <option value="">不关联发票</option>
                         {availableInvoices.map((invoice: any) => (
                           <option key={invoice.id} value={invoice.id}>
-                            #{invoice.id} {invoice.invoice_number || invoice.file_name || '未识别发票'} ¥{Number(invoice.total_amount || 0).toFixed(2)}
+                            #{invoice.id} {invoice.invoice_number || invoice.file_name || '未识别发票'} ¥{Number(invoice.total_amount || 0).toFixed(2)} · {getInvoiceStatusLabel(invoice.status)}
                           </option>
                         ))}
                       </select>
@@ -249,6 +250,21 @@ export default function CreateReimbursementPage() {
       </main>
     </div>
   );
+}
+
+function getInvoiceStatusLabel(status: string) {
+  switch (status) {
+    case 'verified':
+      return '已验证';
+    case 'invalid':
+      return '异常';
+    case 'voided':
+      return '已作废';
+    case 'error':
+      return '识别失败';
+    default:
+      return '待验';
+  }
 }
 
 function FormInput({ label, ...props }: any) {
