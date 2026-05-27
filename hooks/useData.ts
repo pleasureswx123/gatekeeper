@@ -59,6 +59,22 @@ export function useAuditLogs(skip: number = 0, limit: number = 50, action?: stri
   };
 }
 
+// 系统信息
+export function useSystemInfo() {
+  const { data, error, isLoading, mutate } = useSWR(
+    API_ENDPOINTS.SYSTEM_INFO,
+    async (url) => apiClient.get(url),
+    { revalidateOnFocus: false }
+  );
+
+  return {
+    systemInfo: data as Record<string, any>,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
 // 发票数据
 export function useInvoices(skip: number = 0, limit: number = 10, status?: string) {
   let url = `${API_ENDPOINTS.INVOICES_LIST}?skip=${skip}&limit=${limit}`;

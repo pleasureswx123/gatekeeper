@@ -20,6 +20,12 @@ class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
 
 
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = Field(None, min_length=1, max_length=200)
+    department: Optional[str] = Field(None, min_length=1, max_length=100)
+
+
 class UserResponse(UserBase):
     id: int
     is_active: bool

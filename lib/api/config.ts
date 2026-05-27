@@ -9,6 +9,9 @@ export const API_ENDPOINTS = {
   AUTH_REGISTER: '/auth/register',
   AUTH_ME: '/auth/me',
 
+  // 系统
+  SYSTEM_INFO: '/system/info',
+
   // 审计日志
   AUDIT_LOGS_LIST: '/audit-logs',
 

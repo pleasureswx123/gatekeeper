@@ -4,10 +4,11 @@ FastAPI 认证 API 路由
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
-from schemas import UserCreate, UserResponse, UserLogin
+from schemas import UserCreate, UserResponse, UserLogin, UserUpdate
 from models import User
 from utils.security import hash_password, verify_password, create_access_token
 from deps import get_current_user
+from utils.audit import write_audit_log
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
@@ -82,4 +83,45 @@ def login(user_login: UserLogin, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def read_current_user(current_user: User = Depends(get_current_user)):
     """获取当前用户信息"""
+    return current_user
+
+
+@router.put("/me", response_model=UserResponse)
+def update_current_user(
+    user_update: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """更新当前用户基础信息"""
+    if user_update.email and user_update.email != current_user.email:
+        existing_user = db.query(User).filter(User.email == user_update.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        current_user.email = user_update.email
+
+    if user_update.full_name is not None:
+        current_user.full_name = user_update.full_name
+
+    if user_update.department is not None:
+        current_user.department = user_update.department
+
+    db.commit()
+    db.refresh(current_user)
+
+    write_audit_log(
+        db,
+        action="user_profile_updated",
+        resource_type="user",
+        resource_id=current_user.id,
+        user_id=current_user.id,
+        changes={
+            "email": current_user.email,
+            "full_name": current_user.full_name,
+            "department": current_user.department,
+        },
+    )
+
     return current_user
