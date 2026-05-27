@@ -67,6 +67,25 @@ def invoice_ocr_recognition(self, invoice_id: int, image_path: str):
                 "verified" if is_valid and not is_duplicate else "invalid",
                 "duplicate" if is_duplicate else ("valid" if is_valid else "invalid")
             )
+        else:
+            progress = TaskProgress(
+                task_id=task.id,
+                progress_percentage=100,
+                current_step="OCR recognition failed",
+                status_message=invoice.ocr_error or "Invoice data extraction failed"
+            )
+            db.add(progress)
+
+            task.status = "failed"
+            task.completed_at = datetime.utcnow()
+            task.error_message = invoice.ocr_error
+            task.result = {
+                "invoice_id": invoice_id,
+                "status": "error",
+                "error_message": invoice.ocr_error
+            }
+            db.commit()
+            return {"status": "error", "invoice_id": invoice_id, "message": invoice.ocr_error}
         
         # 更新进度
         progress = TaskProgress(
@@ -260,6 +279,11 @@ def contract_analyze_risks(self, contract_id: int, contract_text: str):
         db.commit()
         
         llm_result = volcano_client.analyze_contract_with_llm(contract_text)
+        if llm_result.get("status") == "error":
+            contract.status = "error"
+            contract.analysis_error = llm_result.get("error_message")
+            db.commit()
+            raise ValueError(contract.analysis_error or "Contract analysis failed")
         
         # 合并结果
         combined_risks = llm_result.get("risks", [])

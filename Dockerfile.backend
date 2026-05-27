@@ -9,6 +9,7 @@ WORKDIR /app
 RUN sed -i 's|http://deb.debian.org/debian|https://mirrors.aliyun.com/debian|g; s|http://deb.debian.org/debian-security|https://mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list.d/debian.sources \
     && apt-get update && apt-get install -y \
     gcc \
+    poppler-utils \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 

@@ -6,11 +6,37 @@ from models import Invoice, InvoiceItem, InvoiceVerificationLog, AsyncTask
 from schemas import InvoiceResponse, InvoiceOCRResult
 from services.volcano_service import volcano_client
 from datetime import datetime
+from datetime import date
+from decimal import Decimal, InvalidOperation
 import json
 
 
 class InvoiceService:
     """发票处理业务逻辑"""
+
+    @staticmethod
+    def _parse_decimal(value) -> Decimal:
+        if value in (None, ""):
+            return Decimal("0")
+        try:
+            return Decimal(str(value).replace(",", "").replace("¥", "").strip())
+        except (InvalidOperation, ValueError):
+            return Decimal("0")
+
+    @staticmethod
+    def _parse_date(value):
+        if not value:
+            return None
+        if isinstance(value, date):
+            return value
+
+        text = str(value).strip().replace("/", "-").replace(".", "-")
+        for fmt in ("%Y-%m-%d", "%Y年%m月%d日", "%Y%m%d"):
+            try:
+                return datetime.strptime(text, fmt).date()
+            except ValueError:
+                continue
+        return None
     
     @staticmethod
     def create_invoice(db: Session, file_path: str, file_name: str, file_size: int, 
@@ -53,24 +79,27 @@ class InvoiceService:
             # 更新发票基本信息
             invoice.invoice_number = ocr_result.get("invoice_number")
             invoice.invoice_code = ocr_result.get("invoice_code")
-            invoice.invoice_date = ocr_result.get("invoice_date")
+            invoice.invoice_date = InvoiceService._parse_date(ocr_result.get("invoice_date"))
             invoice.issuer_name = ocr_result.get("issuer_name")
             invoice.issuer_tax_id = ocr_result.get("issuer_tax_id")
             invoice.receiver_name = ocr_result.get("receiver_name")
             invoice.receiver_tax_id = ocr_result.get("receiver_tax_id")
-            invoice.invoice_amount = float(ocr_result.get("invoice_amount", 0))
-            invoice.tax_amount = float(ocr_result.get("tax_amount", 0))
-            invoice.total_amount = float(ocr_result.get("total_amount", 0))
+            invoice.invoice_amount = InvoiceService._parse_decimal(ocr_result.get("invoice_amount", 0))
+            invoice.tax_amount = InvoiceService._parse_decimal(ocr_result.get("tax_amount", 0))
+            invoice.total_amount = InvoiceService._parse_decimal(ocr_result.get("total_amount", 0))
             
             # 处理发票项目
+            db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).delete()
             for item in ocr_result.get("items", []):
                 invoice_item = InvoiceItem(
                     invoice_id=invoice_id,
                     item_name=item.get("name"),
-                    item_quantity=float(item.get("quantity", 0)),
+                    item_quantity=InvoiceService._parse_decimal(item.get("quantity", 0)),
                     item_unit=item.get("unit"),
-                    item_price=float(item.get("price", 0)),
-                    item_amount=float(item.get("amount", 0))
+                    item_price=InvoiceService._parse_decimal(item.get("price", 0)),
+                    item_amount=InvoiceService._parse_decimal(item.get("amount", 0)),
+                    tax_rate=InvoiceService._parse_decimal(item.get("tax_rate", 0)),
+                    tax_amount=InvoiceService._parse_decimal(item.get("tax_amount", 0)),
                 )
                 db.add(invoice_item)
         
@@ -122,6 +151,9 @@ class InvoiceService:
             raise ValueError(f"Invoice {invoice_id} not found")
         
         # 查询数据库中是否有相同编号的已验证发票
+        if not invoice.invoice_number:
+            return False
+
         existing = db.query(Invoice).filter(
             Invoice.invoice_number == invoice.invoice_number,
             Invoice.receiver_tax_id == invoice.receiver_tax_id,

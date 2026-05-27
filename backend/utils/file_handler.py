@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 from config import settings
 import mimetypes
+import uuid
 
 
 def ensure_upload_dir():
@@ -25,7 +26,8 @@ def save_upload_file(file, subfolder: str = "") -> str:
     
     Path(file_dir).mkdir(parents=True, exist_ok=True)
     
-    file_path = os.path.join(file_dir, file.filename)
+    safe_name = f"{uuid.uuid4().hex}_{Path(file.filename).name}"
+    file_path = os.path.join(file_dir, safe_name)
     
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)

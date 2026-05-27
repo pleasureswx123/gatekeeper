@@ -2,7 +2,7 @@
 Pydantic 数据验证 Schema
 """
 from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 
@@ -111,7 +111,7 @@ class InvoiceItemResponse(BaseModel):
 
 class InvoiceOCRResult(BaseModel):
     invoice_number: Optional[str]
-    invoice_date: Optional[str]
+    invoice_date: Optional[date]
     issuer_name: Optional[str]
     issuer_tax_id: Optional[str]
     receiver_name: Optional[str]

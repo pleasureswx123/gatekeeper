@@ -7,6 +7,8 @@ from typing import Dict, Any
 from config import settings
 import base64
 import mimetypes
+import os
+import tempfile
 
 
 class VolcanoEngineClient:
@@ -45,10 +47,48 @@ class VolcanoEngineClient:
         """解析模型返回的 JSON，兼容被代码块包裹的情况"""
         cleaned = content.strip()
         if cleaned.startswith("```"):
-            cleaned = cleaned.strip("`")
+            cleaned = cleaned.strip("`").strip()
             if cleaned.startswith("json"):
-                cleaned = cleaned[4:]
-        return json.loads(cleaned.strip())
+                cleaned = cleaned[4:].strip()
+
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise ValueError(f"Model response is not JSON: {content[:300]}")
+        return json.loads(cleaned[start:end + 1])
+
+    @staticmethod
+    def _file_to_image_data_url(file_path: str) -> str:
+        """将图片或 PDF 首页转换为模型可识别的图片 data URL"""
+        mime_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+
+        if mime_type == "application/pdf" or file_path.lower().endswith(".pdf"):
+            from pdf2image import convert_from_path
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                pages = convert_from_path(
+                    file_path,
+                    dpi=180,
+                    first_page=1,
+                    last_page=1,
+                    fmt="png",
+                    output_folder=tmpdir,
+                )
+                if not pages:
+                    raise ValueError("PDF invoice has no renderable pages")
+
+                rendered_path = os.path.join(tmpdir, "invoice_page_1.png")
+                pages[0].save(rendered_path, "PNG")
+                with open(rendered_path, "rb") as f:
+                    image_data = base64.b64encode(f.read()).decode("utf-8")
+                return f"data:image/png;base64,{image_data}"
+
+        if not mime_type.startswith("image/"):
+            raise ValueError(f"Unsupported invoice file type: {mime_type}")
+
+        with open(file_path, "rb") as f:
+            image_data = base64.b64encode(f.read()).decode("utf-8")
+        return f"data:{mime_type};base64,{image_data}"
     
     def recognize_invoice_ocr(self, image_path: str) -> Dict[str, Any]:
         """
@@ -56,11 +96,7 @@ class VolcanoEngineClient:
         使用火山方舟多模态模型识别发票
         """
         try:
-            with open(image_path, 'rb') as f:
-                image_data = base64.b64encode(f.read()).decode('utf-8')
-
-            mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
-            data_url = f"data:{mime_type};base64,{image_data}"
+            data_url = self._file_to_image_data_url(image_path)
             messages = [
                 {
                     "role": "system",
