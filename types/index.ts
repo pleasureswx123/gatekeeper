@@ -93,6 +93,8 @@ export interface Invoice {
   is_duplicate: boolean;
   is_voided: boolean;
   authenticity_verified: boolean;
+  verification_method?: string;
+  verification_error?: string;
   file_name?: string;
   file_size?: number;
   ocr_result?: Record<string, any>;

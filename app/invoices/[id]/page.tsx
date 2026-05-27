@@ -123,6 +123,12 @@ export default function InvoiceDetailPage() {
                 </div>
               )}
 
+              {invoice.verification_error && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400">
+                  {invoice.verification_error}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Info label="发票金额" value={`¥${Number(invoice.invoice_amount || 0).toLocaleString()}`} />
                 <Info label="税额" value={`¥${Number(invoice.tax_amount || 0).toLocaleString()}`} />
@@ -173,7 +179,7 @@ export default function InvoiceDetailPage() {
                 <h3 className="text-lg font-semibold text-foreground mb-4">验证结果</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Verification label="真伪验证" passed={invoice.authenticity_verified} text={invoice.authenticity_verified ? 'Mock 通过' : '待验证'} />
-                  <Verification label="验真方式" passed={invoice.authenticity_verified} text={invoice.authenticity_verified ? 'mock' : '未执行'} />
+                  <Verification label="验真方式" passed={Boolean(invoice.verification_method)} text={invoice.verification_method || '未执行'} />
                   <Verification label="作废状态" passed={!invoice.is_voided} text={invoice.is_voided ? '已作废' : '未作废'} />
                   <Verification label="重复检测" passed={!invoice.is_duplicate} text={invoice.is_duplicate ? '重复发票' : '未重复'} />
                 </div>

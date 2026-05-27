@@ -175,6 +175,8 @@ class InvoiceResponse(BaseModel):
     is_duplicate: bool
     is_voided: bool
     authenticity_verified: bool
+    verification_method: Optional[str]
+    verification_error: Optional[str]
     file_name: Optional[str]
     file_size: Optional[int]
     ocr_result: Optional[Dict[str, Any]]
