@@ -2,6 +2,25 @@ import { API_BASE_URL } from './config';
 import { apiClient } from './client';
 
 export async function downloadAuthenticatedFile(path: string, fallbackFilename: string) {
+  const { blob, filename } = await fetchAuthenticatedFile(path, fallbackFilename);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function previewAuthenticatedFile(path: string, fallbackFilename: string) {
+  const { blob } = await fetchAuthenticatedFile(path, fallbackFilename);
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener,noreferrer');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function fetchAuthenticatedFile(path: string, fallbackFilename: string) {
   const token = apiClient.getToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -14,14 +33,7 @@ export async function downloadAuthenticatedFile(path: string, fallbackFilename: 
 
   const blob = await response.blob();
   const filename = getFilenameFromDisposition(response.headers.get('content-disposition')) || fallbackFilename;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  return { blob, filename };
 }
 
 function getFilenameFromDisposition(disposition: string | null) {

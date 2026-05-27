@@ -8,10 +8,10 @@ import { useParams } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/config';
-import { AlertCircle, CheckCircle2, Clock, Download, Receipt, RefreshCw, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Download, Eye, Receipt, RefreshCw, XCircle } from 'lucide-react';
 import { useInvoice } from '@/hooks/useData';
 import { useResourceTasks, useTaskMonitor } from '@/hooks/useTaskProgress';
-import { downloadAuthenticatedFile } from '@/lib/api/download';
+import { downloadAuthenticatedFile, previewAuthenticatedFile } from '@/lib/api/download';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -22,6 +22,7 @@ export default function InvoiceDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const { progress: activeProgress, result: activeResult } = useTaskMonitor(activeTaskId);
 
   const latestTask = tasks[0];
@@ -71,6 +72,23 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const handlePreview = async () => {
+    if (!invoice) return;
+    setIsPreviewing(true);
+    setActionError(null);
+
+    try {
+      await previewAuthenticatedFile(
+        API_ENDPOINTS.INVOICES_FILE(invoice.id),
+        invoice.file_name || `invoice-${invoice.id}.pdf`
+      );
+    } catch (err: any) {
+      setActionError(err.message || '发票文件预览失败');
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-background">
       <Navigation />
@@ -88,6 +106,14 @@ export default function InvoiceDetailPage() {
               </div>
               {invoice && (
                 <div className="flex gap-3">
+                  <button
+                    onClick={handlePreview}
+                    disabled={isPreviewing}
+                    className="flex items-center gap-2 px-4 py-2 bg-secondary/20 text-foreground rounded-lg hover:bg-secondary/30 border border-border disabled:opacity-50"
+                  >
+                    <Eye className="w-4 h-4" />
+                    {isPreviewing ? '打开中...' : '预览原文件'}
+                  </button>
                   <button
                     onClick={handleDownload}
                     disabled={isDownloading}

@@ -6,11 +6,11 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
-import { FileText, AlertCircle, CheckCircle, AlertTriangle, Clock, Download } from 'lucide-react';
+import { FileText, AlertCircle, CheckCircle, AlertTriangle, Clock, Download, Eye } from 'lucide-react';
 import { useContract } from '@/hooks/useData';
 import { useResourceTasks } from '@/hooks/useTaskProgress';
 import { API_ENDPOINTS } from '@/lib/api/config';
-import { downloadAuthenticatedFile } from '@/lib/api/download';
+import { downloadAuthenticatedFile, previewAuthenticatedFile } from '@/lib/api/download';
 
 export default function ContractDetailPage() {
   const params = useParams();
@@ -19,6 +19,7 @@ export default function ContractDetailPage() {
   const { tasks } = useResourceTasks('contract', contractId);
   const [actionError, setActionError] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const latestTask = tasks[0];
 
   const riskLevel = contract?.risk_level || 'unknown';
@@ -40,6 +41,23 @@ export default function ContractDetailPage() {
     }
   };
 
+  const handlePreview = async () => {
+    if (!contract) return;
+    setIsPreviewing(true);
+    setActionError('');
+
+    try {
+      await previewAuthenticatedFile(
+        API_ENDPOINTS.CONTRACTS_FILE(contract.id),
+        contract.file_name || `${contract.contract_number}.pdf`
+      );
+    } catch (err: any) {
+      setActionError(err.message || '合同文件预览失败');
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-background">
       <Navigation />
@@ -58,14 +76,24 @@ export default function ContractDetailPage() {
                 </div>
               </div>
               {contract && (
-                <button
-                  onClick={handleDownload}
-                  disabled={isDownloading}
-                  className="flex items-center gap-2 px-4 py-2 bg-secondary/20 text-foreground rounded-lg hover:bg-secondary/30 border border-border disabled:opacity-50"
-                >
-                  <Download className="w-4 h-4" />
-                  {isDownloading ? '下载中...' : '下载原文件'}
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handlePreview}
+                    disabled={isPreviewing}
+                    className="flex items-center gap-2 px-4 py-2 bg-secondary/20 text-foreground rounded-lg hover:bg-secondary/30 border border-border disabled:opacity-50"
+                  >
+                    <Eye className="w-4 h-4" />
+                    {isPreviewing ? '打开中...' : '预览原文件'}
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    disabled={isDownloading}
+                    className="flex items-center gap-2 px-4 py-2 bg-secondary/20 text-foreground rounded-lg hover:bg-secondary/30 border border-border disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" />
+                    {isDownloading ? '下载中...' : '下载原文件'}
+                  </button>
+                </div>
               )}
             </div>
           </div>
