@@ -124,6 +124,8 @@ export interface ReimbursementVerification {
 export interface Reimbursement {
   id: number;
   reimbursement_number: string;
+  submitter_id: number;
+  approver_id?: number;
   total_amount: number;
   status: 'submitted' | 'pending_review' | 'approved' | 'rejected' | 'reimbursed';
   submission_date: string;

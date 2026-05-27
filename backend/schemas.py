@@ -224,6 +224,8 @@ class ReimbursementVerificationResponse(BaseModel):
 class ReimbursementResponse(BaseModel):
     id: int
     reimbursement_number: str
+    submitter_id: int
+    approver_id: Optional[int]
     total_amount: Decimal
     status: str
     submission_date: date

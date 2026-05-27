@@ -3,8 +3,24 @@
  */
 import useSWR, { mutate as globalMutate } from 'swr';
 import { API_ENDPOINTS } from '@/lib/api/config';
-import { AuditLog, Contract, Invoice, Reimbursement } from '@/types';
+import { AuditLog, Contract, Invoice, Reimbursement, User } from '@/types';
 import { apiClient } from '@/lib/api/client';
+
+// 当前用户
+export function useCurrentUser() {
+  const { data, error, isLoading, mutate } = useSWR(
+    API_ENDPOINTS.AUTH_ME,
+    async (url) => apiClient.get(url),
+    { revalidateOnFocus: false }
+  );
+
+  return {
+    currentUser: data as User,
+    isLoading,
+    error,
+    mutate,
+  };
+}
 
 // 合同数据
 export function useContracts(skip: number = 0, limit: number = 10, status?: string) {

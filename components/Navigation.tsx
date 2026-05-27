@@ -2,34 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import { Activity, CreditCard, FileText, Home, LogOut, Receipt, Settings } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/config';
+import { useCurrentUser } from '@/hooks/useData';
 import type { User } from '@/types';
 
 export function Navigation() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadCurrentUser = async () => {
-      try {
-        const user = (await apiClient.get(API_ENDPOINTS.AUTH_ME)) as User;
-        if (!cancelled) setCurrentUser(user);
-      } catch {
-        if (!cancelled) setCurrentUser(null);
-      }
-    };
-
-    loadCurrentUser();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { currentUser } = useCurrentUser();
 
   const handleLogout = () => {
     apiClient.clearToken();

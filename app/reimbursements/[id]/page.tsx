@@ -9,6 +9,7 @@ import { Navigation } from '@/components/Navigation';
 import { apiClient } from '@/lib/api/client';
 import { AlertCircle, ArrowLeft, CheckCircle2, Receipt, RefreshCw, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useCurrentUser } from '@/hooks/useData';
 
 export default function ReimbursementDetailPage() {
   const params = useParams();
@@ -17,6 +18,7 @@ export default function ReimbursementDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { currentUser } = useCurrentUser();
 
   const fetchReimbursement = useCallback(async () => {
     if (!id) return;
@@ -41,6 +43,9 @@ export default function ReimbursementDetailPage() {
     if (!reimbursement?.items) return [];
     return Array.from(new Set(reimbursement.items.map((item: any) => item.invoice_id).filter(Boolean)));
   }, [reimbursement]);
+
+  const canReview = currentUser?.role === 'admin' || currentUser?.role === 'reviewer';
+  const canVerify = currentUser?.role === 'admin' || reimbursement?.submitter_id === currentUser?.id;
 
   const runAction = async (action: 'verify' | 'approve' | 'reject') => {
     if (!id) return;
@@ -114,14 +119,16 @@ export default function ReimbursementDetailPage() {
               <h2 className="text-2xl font-bold text-foreground">{reimbursement.reimbursement_number}</h2>
               <p className="text-sm text-muted-foreground mt-1">报销单详情、校验结果和审批操作</p>
             </div>
-            <button
-              onClick={() => runAction('verify')}
-              disabled={isActionLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-secondary/20 text-foreground rounded-lg hover:bg-secondary/30 border border-border disabled:opacity-50"
-            >
-              <RefreshCw className="w-4 h-4" />
-              重新校验
-            </button>
+            {canVerify && (
+              <button
+                onClick={() => runAction('verify')}
+                disabled={isActionLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-secondary/20 text-foreground rounded-lg hover:bg-secondary/30 border border-border disabled:opacity-50"
+              >
+                <RefreshCw className="w-4 h-4" />
+                重新校验
+              </button>
+            )}
           </div>
         </div>
 
@@ -146,6 +153,7 @@ export default function ReimbursementDetailPage() {
               <InfoItem label="总金额" value={`¥${Number(reimbursement.total_amount || 0).toFixed(2)}`} />
               <InfoItem label="审批日期" value={reimbursement.approval_date ? formatDate(reimbursement.approval_date) : '未审批'} />
               <InfoItem label="审批备注" value={reimbursement.approval_notes || '无'} />
+              <InfoItem label="当前权限" value={canReview ? '可审批' : canVerify ? '可校验本人报销单' : '只读'} />
               <div className="md:col-span-3">
                 <InfoItem label="报销说明" value={reimbursement.description || '无'} />
               </div>
@@ -236,7 +244,7 @@ export default function ReimbursementDetailPage() {
             )}
           </div>
 
-          {reimbursement.status === 'submitted' && (
+          {reimbursement.status === 'submitted' && canReview && (
             <div className="flex gap-3">
               <button
                 onClick={() => runAction('approve')}
@@ -252,6 +260,12 @@ export default function ReimbursementDetailPage() {
               >
                 拒绝
               </button>
+            </div>
+          )}
+
+          {reimbursement.status === 'submitted' && !canReview && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-yellow-400">
+              当前账号没有审批权限。只有管理员或审批人可以批准、拒绝报销单。
             </div>
           )}
         </div>
