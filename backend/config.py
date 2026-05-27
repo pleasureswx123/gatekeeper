@@ -8,6 +8,12 @@ from dotenv import load_dotenv
 load_dotenv()
 load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
+
+def _parse_csv_env(name: str, default: str) -> list[str]:
+    value = os.getenv(name, default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 class Settings:
     # 数据库配置
     DATABASE_URL = os.getenv(
@@ -49,6 +55,10 @@ class Settings:
     API_TITLE = "守门人财法风控系统"
     API_VERSION = "1.0.0"
     DEBUG = os.getenv("DEBUG", "False") == "True"
+    ALLOWED_ORIGINS = _parse_csv_env(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000"
+    )
     AUTO_CREATE_TABLES = os.getenv("AUTO_CREATE_TABLES", "True") == "True"
     DEMO_USER_ENABLED = os.getenv("DEMO_USER_ENABLED", "True") == "True"
     DEMO_USERNAME = os.getenv("DEMO_USERNAME", "demo")

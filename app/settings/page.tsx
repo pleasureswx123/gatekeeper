@@ -265,6 +265,7 @@ function SystemInfo({ info }: { info?: Record<string, any> }) {
     ['Ark Key', info?.ark_api_key_configured ? '已配置' : '未配置'],
     ['方舟模型', info?.ark_chat_model || '-'],
     ['方舟地址', info?.ark_base_url || '-'],
+    ['允许跨域来源', Array.isArray(info?.allowed_origins) ? info.allowed_origins.join(', ') : '-'],
   ];
 
   return (
