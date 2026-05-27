@@ -16,6 +16,13 @@ class ApiClient {
       },
     });
 
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem('token');
+      if (storedToken) {
+        this.setToken(storedToken);
+      }
+    }
+
     // 响应拦截器
     this.client.interceptors.response.use(
       (response) => response.data,

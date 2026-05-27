@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,19 +19,14 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+      const data = await apiClient.post(API_ENDPOINTS.AUTH_LOGIN, {
+        username: email,
+        password,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('token', data.access_token);
-        router.push('/');
-      } else {
-        setError('用户名或密码错误');
-      }
+      localStorage.setItem('token', data.access_token);
+      apiClient.setToken(data.access_token);
+      router.push('/');
     } catch (err) {
       setError('登录失败，请检查网络连接');
     } finally {
@@ -40,20 +37,14 @@ export default function LoginPage() {
   const handleDemoLogin = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: 'demo@gatekeeper.com', 
-          password: 'demo123' 
-        })
+      const data = await apiClient.post(API_ENDPOINTS.AUTH_LOGIN, {
+        username: 'demo',
+        password: 'demo123',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('token', data.access_token);
-        router.push('/');
-      }
+      localStorage.setItem('token', data.access_token);
+      apiClient.setToken(data.access_token);
+      router.push('/');
     } catch (err) {
       console.error('Demo login failed:', err);
     } finally {

@@ -54,7 +54,19 @@ def invoice_ocr_recognition(self, invoice_id: int, image_path: str):
         
         # 执行 OCR 识别
         logger.info(f"Starting OCR for invoice {invoice_id}")
-        invoice_service.perform_ocr(db, invoice_id, image_path)
+        invoice = invoice_service.perform_ocr(db, invoice_id, image_path)
+
+        is_valid = False
+        is_duplicate = False
+        if invoice.ocr_status == "completed":
+            is_valid = invoice_service.verify_authenticity(db, invoice_id)
+            is_duplicate = invoice_service.check_duplicate(db, invoice_id)
+            invoice_service.update_invoice_status(
+                db,
+                invoice_id,
+                "verified" if is_valid and not is_duplicate else "invalid",
+                "duplicate" if is_duplicate else ("valid" if is_valid else "invalid")
+            )
         
         # 更新进度
         progress = TaskProgress(
@@ -67,7 +79,12 @@ def invoice_ocr_recognition(self, invoice_id: int, image_path: str):
         
         task.status = "completed"
         task.completed_at = datetime.utcnow()
-        task.result = {"invoice_id": invoice_id, "status": "success"}
+        task.result = {
+            "invoice_id": invoice_id,
+            "status": "success",
+            "is_valid": is_valid,
+            "is_duplicate": is_duplicate
+        }
         db.commit()
         
         return {"status": "success", "invoice_id": invoice_id}

@@ -5,12 +5,13 @@ from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status,
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import ContractResponse, ContractUpload
-from models import Contract
+from models import Contract, AsyncTask
 from services.business_logic import invoice_service
 from utils.file_handler import save_upload_file, is_allowed_file, get_file_size
 from tasks.celery_tasks import contract_analyze_risks
 from config import settings
 import os
+import uuid
 
 router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 
@@ -77,14 +78,26 @@ async def upload_contract(
     # 提取合同文本
     contract_text = extract_pdf_text(file_path)
     
-    # 异步触发分析任务
-    task = contract_analyze_risks.delay(contract.id, contract_text[:5000])
+    task_id = str(uuid.uuid4())
+    db.add(AsyncTask(
+        task_id=task_id,
+        task_type="contract_analysis",
+        status="pending",
+        resource_type="contract",
+        resource_id=contract.id,
+    ))
+    db.commit()
+
+    if settings.BACKGROUND_TASK_MODE == "inline":
+        contract_analyze_risks.apply(args=[contract.id, contract_text[:5000]], task_id=task_id)
+    else:
+        contract_analyze_risks.apply_async(args=[contract.id, contract_text[:5000]], task_id=task_id)
     
     return {
         "contract_id": contract.id,
         "contract_number": contract.contract_number,
         "file_name": file.filename,
-        "task_id": task.id,
+        "task_id": task_id,
         "status": "uploaded",
         "message": "Contract uploaded successfully, analysis started"
     }

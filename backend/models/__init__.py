@@ -26,7 +26,8 @@ class User(Base):
     # 关系
     contracts = relationship("Contract", back_populates="upload_user")
     invoices = relationship("Invoice", back_populates="upload_user")
-    reimbursements = relationship("Reimbursement", back_populates="submitter")
+    reimbursements = relationship("Reimbursement", back_populates="submitter", foreign_keys="Reimbursement.submitter_id")
+    approvals = relationship("Reimbursement", back_populates="approver", foreign_keys="Reimbursement.approver_id")
     audit_logs = relationship("AuditLog", back_populates="user")
 
 
@@ -132,6 +133,7 @@ class Reimbursement(Base):
 
     # 关系
     submitter = relationship("User", back_populates="reimbursements", foreign_keys=[submitter_id])
+    approver = relationship("User", back_populates="approvals", foreign_keys=[approver_id])
     items = relationship("ReimbursementItem", back_populates="reimbursement", cascade="all, delete-orphan")
     verification = relationship("ReimbursementVerification", back_populates="reimbursement", uselist=False, cascade="all, delete-orphan")
 

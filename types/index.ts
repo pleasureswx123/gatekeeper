@@ -42,6 +42,7 @@ export interface Contract {
   risk_level?: 'low' | 'medium' | 'high' | 'critical';
   risk_score?: number;
   analysis_result?: Record<string, any>;
+  llm_analysis_result?: Record<string, any>;
   risks: ContractRisk[];
   clauses: ContractClause[];
   created_at: string;
@@ -61,9 +62,15 @@ export interface InvoiceItem {
 export interface Invoice {
   id: number;
   invoice_number?: string;
+  invoice_code?: string;
   invoice_type?: string;
   issuer_name?: string;
+  issuer_tax_id?: string;
+  receiver_name?: string;
+  receiver_tax_id?: string;
   invoice_amount?: number;
+  tax_amount?: number;
+  total_amount?: number;
   invoice_date?: string;
   status: 'processing' | 'verified' | 'invalid' | 'voided' | 'error';
   ocr_status: 'pending' | 'processing' | 'completed' | 'error';

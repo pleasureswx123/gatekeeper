@@ -6,6 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from config import settings
+from database import Base, engine, SessionLocal
+from models import User
+from utils.security import hash_password
 import logging
 
 # 配置日志
@@ -24,6 +27,27 @@ from app.tasks import router as tasks_router
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info("Starting Gatekeeper Financial Compliance System")
+    if settings.AUTO_CREATE_TABLES:
+        Base.metadata.create_all(bind=engine)
+
+    if settings.DEMO_USER_ENABLED:
+        db = SessionLocal()
+        try:
+            demo_user = db.query(User).filter(
+                (User.username == settings.DEMO_USERNAME) | (User.email == settings.DEMO_EMAIL)
+            ).first()
+            if not demo_user:
+                db.add(User(
+                    username=settings.DEMO_USERNAME,
+                    email=settings.DEMO_EMAIL,
+                    password_hash=hash_password(settings.DEMO_PASSWORD),
+                    full_name="演示用户",
+                    department="财法风控部",
+                    role="admin",
+                ))
+                db.commit()
+        finally:
+            db.close()
     yield
     logger.info("Shutting down Gatekeeper")
 

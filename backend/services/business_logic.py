@@ -45,6 +45,9 @@ class InvoiceService:
         invoice.ocr_result = ocr_result
         invoice.ocr_confidence = ocr_result.get("confidence", 0.0)
         invoice.ocr_error = ocr_result.get("error_message")
+        if invoice.ocr_status == "error":
+            invoice.status = "error"
+            invoice.validation_status = "invalid"
         
         if ocr_result.get("status") == "success":
             # 更新发票基本信息

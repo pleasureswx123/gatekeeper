@@ -5,12 +5,13 @@ from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status,
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import InvoiceResponse, InvoiceUpload, InvoiceBatchVerifyRequest
-from models import Invoice
+from models import Invoice, AsyncTask
 from services.business_logic import invoice_service
 from utils.file_handler import save_upload_file, is_allowed_file, get_file_size
 from tasks.celery_tasks import invoice_ocr_recognition, invoice_verify_authenticity
 from config import settings
 import os
+import uuid
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 
@@ -51,13 +52,25 @@ async def upload_invoice(
         invoice_type=invoice_type
     )
     
-    # 异步触发 OCR 任务
-    task = invoice_ocr_recognition.delay(invoice.id, file_path)
+    task_id = str(uuid.uuid4())
+    db.add(AsyncTask(
+        task_id=task_id,
+        task_type="invoice_ocr",
+        status="pending",
+        resource_type="invoice",
+        resource_id=invoice.id,
+    ))
+    db.commit()
+
+    if settings.BACKGROUND_TASK_MODE == "inline":
+        invoice_ocr_recognition.apply(args=[invoice.id, file_path], task_id=task_id)
+    else:
+        invoice_ocr_recognition.apply_async(args=[invoice.id, file_path], task_id=task_id)
     
     return {
         "invoice_id": invoice.id,
         "file_name": file.filename,
-        "task_id": task.id,
+        "task_id": task_id,
         "status": "uploaded",
         "message": "Invoice uploaded successfully, OCR processing started"
     }
@@ -105,12 +118,24 @@ def verify_invoice(invoice_id: int, db: Session = Depends(get_db)):
             detail="Invoice not found"
         )
     
-    # 异步触发验证任务
-    task = invoice_verify_authenticity.delay(invoice_id)
+    task_id = str(uuid.uuid4())
+    db.add(AsyncTask(
+        task_id=task_id,
+        task_type="invoice_verification",
+        status="pending",
+        resource_type="invoice",
+        resource_id=invoice_id,
+    ))
+    db.commit()
+
+    if settings.BACKGROUND_TASK_MODE == "inline":
+        invoice_verify_authenticity.apply(args=[invoice_id], task_id=task_id)
+    else:
+        invoice_verify_authenticity.apply_async(args=[invoice_id], task_id=task_id)
     
     return {
         "invoice_id": invoice_id,
-        "task_id": task.id,
+        "task_id": task_id,
         "status": "verification_started",
         "message": "Invoice verification task started"
     }
@@ -127,10 +152,22 @@ def batch_verify_invoices(
     for invoice_id in request.invoice_ids:
         invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
         if invoice:
-            task = invoice_verify_authenticity.delay(invoice_id)
+            task_id = str(uuid.uuid4())
+            db.add(AsyncTask(
+                task_id=task_id,
+                task_type="invoice_verification",
+                status="pending",
+                resource_type="invoice",
+                resource_id=invoice_id,
+            ))
+            db.commit()
+            if settings.BACKGROUND_TASK_MODE == "inline":
+                invoice_verify_authenticity.apply(args=[invoice_id], task_id=task_id)
+            else:
+                invoice_verify_authenticity.apply_async(args=[invoice_id], task_id=task_id)
             tasks.append({
                 "invoice_id": invoice_id,
-                "task_id": task.id
+                "task_id": task_id
             })
     
     return {

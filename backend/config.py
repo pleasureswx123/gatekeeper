@@ -49,5 +49,11 @@ class Settings:
     API_TITLE = "守门人财法风控系统"
     API_VERSION = "1.0.0"
     DEBUG = os.getenv("DEBUG", "False") == "True"
+    AUTO_CREATE_TABLES = os.getenv("AUTO_CREATE_TABLES", "True") == "True"
+    DEMO_USER_ENABLED = os.getenv("DEMO_USER_ENABLED", "True") == "True"
+    DEMO_USERNAME = os.getenv("DEMO_USERNAME", "demo")
+    DEMO_EMAIL = os.getenv("DEMO_EMAIL", "demo@gatekeeper.com")
+    DEMO_PASSWORD = os.getenv("DEMO_PASSWORD", "demo123")
+    BACKGROUND_TASK_MODE = os.getenv("BACKGROUND_TASK_MODE", "inline")
 
 settings = Settings()

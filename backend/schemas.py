@@ -76,6 +76,7 @@ class ContractResponse(BaseModel):
     risk_level: Optional[str]
     risk_score: Optional[float]
     analysis_result: Optional[Dict[str, Any]]
+    llm_analysis_result: Optional[Dict[str, Any]]
     risks: List[ContractRiskResponse] = []
     clauses: List[ContractClauseResponse] = []
     created_at: datetime
@@ -123,9 +124,15 @@ class InvoiceOCRResult(BaseModel):
 class InvoiceResponse(BaseModel):
     id: int
     invoice_number: Optional[str]
+    invoice_code: Optional[str]
     invoice_type: Optional[str]
     issuer_name: Optional[str]
+    issuer_tax_id: Optional[str]
+    receiver_name: Optional[str]
+    receiver_tax_id: Optional[str]
     invoice_amount: Optional[Decimal]
+    tax_amount: Optional[Decimal]
+    total_amount: Optional[Decimal]
     invoice_date: Optional[str]
     status: str
     ocr_status: str
