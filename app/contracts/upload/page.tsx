@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/config';
 import { useTaskMonitor } from '@/hooks/useTaskProgress';
-import { Upload, CheckCircle, AlertCircle, Loader, XCircle } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, Loader, XCircle, Clock } from 'lucide-react';
 
 export default function ContractUploadPage() {
   const router = useRouter();
@@ -198,12 +198,14 @@ export default function ContractUploadPage() {
                     <div className="flex items-start gap-2 mb-3">
                       {progress?.status === 'failed' ? (
                         <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                      ) : (
+                      ) : progress?.status === 'completed' ? (
                         <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      ) : (
+                        <Clock className="w-5 h-5 text-blue-600 mt-0.5" />
                       )}
                       <div>
                         <p className="font-medium text-sm">
-                          {progress?.status === 'failed' ? '合同分析失败' : '合同已上传'}
+                          {progress?.status === 'completed' ? '合同分析完成' : progress?.status === 'failed' ? '合同分析失败' : '合同已上传'}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {progress?.status === 'completed' ? '智能分析已完成' : progress?.status === 'failed' ? '请查看错误信息后重新上传' : '正在进行智能分析...'}
@@ -224,7 +226,7 @@ export default function ContractUploadPage() {
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
-                              className="bg-blue-600 h-2 rounded-full transition-all"
+                              className={`h-2 rounded-full transition-all ${progress.status === 'failed' ? 'bg-red-600' : progress.status === 'completed' ? 'bg-green-600' : 'bg-blue-600'}`}
                               style={{ width: `${progress.progress_percentage || 0}%` }}
                             ></div>
                           </div>
