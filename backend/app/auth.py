@@ -2,16 +2,15 @@
 FastAPI 认证 API 路由
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import UserCreate, UserResponse, UserLogin
 from models import User
-from utils.security import hash_password, verify_password, create_access_token, decode_token
+from utils.security import hash_password, verify_password, create_access_token
+from deps import get_current_user
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 class Token(BaseModel):
@@ -81,20 +80,6 @@ def login(user_login: UserLogin, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserResponse)
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def read_current_user(current_user: User = Depends(get_current_user)):
     """获取当前用户信息"""
-    payload = decode_token(token)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
-
-    user = db.query(User).filter(User.username == payload.get("sub")).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-
-    return user
+    return current_user

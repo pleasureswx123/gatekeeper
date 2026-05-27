@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status,
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import ContractResponse, ContractUpload
-from models import Contract, AsyncTask
+from models import Contract, AsyncTask, User
 from services.business_logic import invoice_service
 from utils.file_handler import save_upload_file, is_allowed_file, get_file_size
 from tasks.celery_tasks import contract_analyze_risks
 from config import settings
+from deps import get_current_user
 import os
 import uuid
 
@@ -36,7 +37,8 @@ async def upload_contract(
     contract_name: str = None,
     supplier_name: str = None,
     amount: float = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """上传合同文件"""
     # 检查文件类型
@@ -67,7 +69,7 @@ async def upload_contract(
         file_path=file_path,
         file_name=file.filename,
         file_size=file_size,
-        upload_user_id=1,  # TODO: 从认证信息获取
+        upload_user_id=current_user.id,
         status="pending"
     )
     
@@ -104,11 +106,15 @@ async def upload_contract(
 
 
 @router.get("/{contract_id}", response_model=ContractResponse)
-def get_contract(contract_id: int, db: Session = Depends(get_db)):
+def get_contract(
+    contract_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """获取合同详情"""
     contract = db.query(Contract).filter(Contract.id == contract_id).first()
     
-    if not contract:
+    if not contract or (current_user.role != "admin" and contract.upload_user_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Contract not found"
@@ -123,10 +129,13 @@ def list_contracts(
     limit: int = Query(10, ge=1, le=100),
     status: str = Query(None),
     risk_level: str = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """列表查询合同"""
     query = db.query(Contract)
+    if current_user.role != "admin":
+        query = query.filter(Contract.upload_user_id == current_user.id)
     
     if status:
         query = query.filter(Contract.status == status)
@@ -139,13 +148,17 @@ def list_contracts(
 
 
 @router.get("/{contract_id}/risks")
-def get_contract_risks(contract_id: int, db: Session = Depends(get_db)):
+def get_contract_risks(
+    contract_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """获取合同风险"""
     from models import ContractRisk
     
     contract = db.query(Contract).filter(Contract.id == contract_id).first()
     
-    if not contract:
+    if not contract or (current_user.role != "admin" and contract.upload_user_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Contract not found"
@@ -165,11 +178,15 @@ def get_contract_risks(contract_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{contract_id}/analysis-status")
-def get_analysis_status(contract_id: int, db: Session = Depends(get_db)):
+def get_analysis_status(
+    contract_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """获取分析状态"""
     contract = db.query(Contract).filter(Contract.id == contract_id).first()
     
-    if not contract:
+    if not contract or (current_user.role != "admin" and contract.upload_user_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Contract not found"

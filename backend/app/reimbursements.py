@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import ReimbursementCreate, ReimbursementResponse, ReimbursementItemResponse
-from models import Reimbursement, ReimbursementItem, ReimbursementVerification
+from models import Reimbursement, ReimbursementItem, ReimbursementVerification, User
 from services.business_logic import reimbursement_service
+from deps import get_current_user
 from datetime import date
 
 router = APIRouter(prefix="/api/reimbursements", tags=["reimbursements"])
@@ -15,7 +16,8 @@ router = APIRouter(prefix="/api/reimbursements", tags=["reimbursements"])
 @router.post("/", response_model=ReimbursementResponse)
 def create_reimbursement(
     reimbursement: ReimbursementCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """创建报销单"""
     # 生成报销单号
@@ -25,7 +27,7 @@ def create_reimbursement(
     # 创建报销单
     db_reimbursement = Reimbursement(
         reimbursement_number=reimbursement_number,
-        submitter_id=1,  # TODO: 从认证信息获取
+        submitter_id=current_user.id,
         description=reimbursement.description,
         status="submitted",
         submission_date=date.today()
@@ -57,13 +59,17 @@ def create_reimbursement(
 
 
 @router.get("/{reimbursement_id}", response_model=ReimbursementResponse)
-def get_reimbursement(reimbursement_id: int, db: Session = Depends(get_db)):
+def get_reimbursement(
+    reimbursement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """获取报销单详情"""
     reimbursement = db.query(Reimbursement).filter(
         Reimbursement.id == reimbursement_id
     ).first()
     
-    if not reimbursement:
+    if not reimbursement or (current_user.role != "admin" and reimbursement.submitter_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reimbursement not found"
@@ -77,10 +83,13 @@ def list_reimbursements(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     status: str = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """列表查询报销单"""
     query = db.query(Reimbursement)
+    if current_user.role != "admin":
+        query = query.filter(Reimbursement.submitter_id == current_user.id)
     
     if status:
         query = query.filter(Reimbursement.status == status)
@@ -90,13 +99,17 @@ def list_reimbursements(
 
 
 @router.post("/{reimbursement_id}/verify")
-def verify_reimbursement(reimbursement_id: int, db: Session = Depends(get_db)):
+def verify_reimbursement(
+    reimbursement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """验证报销单 - 三单合一检查"""
     reimbursement = db.query(Reimbursement).filter(
         Reimbursement.id == reimbursement_id
     ).first()
     
-    if not reimbursement:
+    if not reimbursement or (current_user.role != "admin" and reimbursement.submitter_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reimbursement not found"
@@ -115,7 +128,8 @@ def verify_reimbursement(reimbursement_id: int, db: Session = Depends(get_db)):
 def approve_reimbursement(
     reimbursement_id: int,
     approval_notes: str = "",
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """批准报销单"""
     reimbursement = db.query(Reimbursement).filter(
@@ -127,9 +141,14 @@ def approve_reimbursement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reimbursement not found"
         )
+    if current_user.role not in ("admin", "reviewer"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only reviewers or admins can approve reimbursements"
+        )
     
     reimbursement.status = "approved"
-    reimbursement.approver_id = 1  # TODO: 从认证信息获取
+    reimbursement.approver_id = current_user.id
     reimbursement.approval_date = date.today()
     reimbursement.approval_notes = approval_notes
     
@@ -147,7 +166,8 @@ def approve_reimbursement(
 def reject_reimbursement(
     reimbursement_id: int,
     rejection_reason: str = "",
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """拒绝报销单"""
     reimbursement = db.query(Reimbursement).filter(
@@ -159,9 +179,14 @@ def reject_reimbursement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reimbursement not found"
         )
+    if current_user.role not in ("admin", "reviewer"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only reviewers or admins can reject reimbursements"
+        )
     
     reimbursement.status = "rejected"
-    reimbursement.approver_id = 1  # TODO: 从认证信息获取
+    reimbursement.approver_id = current_user.id
     reimbursement.approval_date = date.today()
     reimbursement.approval_notes = rejection_reason
     

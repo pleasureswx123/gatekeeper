@@ -2,13 +2,13 @@
  * 异步任务状态 Hook
  */
 import useSWR from 'swr';
-import { API_ENDPOINTS, API_BASE_URL } from '@/lib/api/config';
+import { API_ENDPOINTS } from '@/lib/api/config';
 import { TaskProgress, TaskResult } from '@/types';
 import { apiClient } from '@/lib/api/client';
 
 export function useTaskProgress(taskId: string | null) {
   const { data, error, isLoading } = useSWR(
-    taskId ? `${API_BASE_URL}${API_ENDPOINTS.TASKS_STATUS(taskId)}` : null,
+    taskId ? API_ENDPOINTS.TASKS_STATUS(taskId) : null,
     async (url) => apiClient.get(url),
     {
       refreshInterval: 2000, // 每 2 秒刷新一次
@@ -25,7 +25,7 @@ export function useTaskProgress(taskId: string | null) {
 
 export function useTaskResult(taskId: string | null) {
   const { data, error, isLoading } = useSWR(
-    taskId ? `${API_BASE_URL}${API_ENDPOINTS.TASKS_RESULT(taskId)}` : null,
+    taskId ? API_ENDPOINTS.TASKS_RESULT(taskId) : null,
     async (url) => apiClient.get(url),
     {
       refreshInterval: 5000, // 每 5 秒刷新一次
@@ -41,7 +41,7 @@ export function useTaskResult(taskId: string | null) {
 
 export function useResourceTasks(resourceType: string, resourceId: number) {
   const { data, error, isLoading, mutate } = useSWR(
-    `${API_BASE_URL}${API_ENDPOINTS.TASKS_RESOURCE(resourceType, resourceId)}`,
+    API_ENDPOINTS.TASKS_RESOURCE(resourceType, resourceId),
     async (url) => apiClient.get(url),
     {
       refreshInterval: 3000,

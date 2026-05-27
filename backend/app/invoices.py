@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status,
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import InvoiceResponse, InvoiceUpload, InvoiceBatchVerifyRequest
-from models import Invoice, AsyncTask
+from models import Invoice, AsyncTask, User
 from services.business_logic import invoice_service
 from utils.file_handler import save_upload_file, is_allowed_file, get_file_size
 from tasks.celery_tasks import invoice_ocr_recognition, invoice_verify_authenticity
 from config import settings
+from deps import get_current_user
 import os
 import uuid
 
@@ -20,7 +21,8 @@ router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 async def upload_invoice(
     file: UploadFile = File(...),
     invoice_type: str = "normal",
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """上传发票文件"""
     # 检查文件类型
@@ -48,7 +50,7 @@ async def upload_invoice(
         file_path=file_path,
         file_name=file.filename,
         file_size=file_size,
-        user_id=1,  # TODO: 从认证信息获取
+        user_id=current_user.id,
         invoice_type=invoice_type
     )
     
@@ -77,11 +79,15 @@ async def upload_invoice(
 
 
 @router.get("/{invoice_id}", response_model=InvoiceResponse)
-def get_invoice(invoice_id: int, db: Session = Depends(get_db)):
+def get_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """获取发票详情"""
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     
-    if not invoice:
+    if not invoice or (current_user.role != "admin" and invoice.upload_user_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invoice not found"
@@ -95,10 +101,13 @@ def list_invoices(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     status: str = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """列表查询发票"""
     query = db.query(Invoice)
+    if current_user.role != "admin":
+        query = query.filter(Invoice.upload_user_id == current_user.id)
     
     if status:
         query = query.filter(Invoice.status == status)
@@ -108,11 +117,15 @@ def list_invoices(
 
 
 @router.post("/{invoice_id}/verify")
-def verify_invoice(invoice_id: int, db: Session = Depends(get_db)):
+def verify_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """验证发票真伪"""
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     
-    if not invoice:
+    if not invoice or (current_user.role != "admin" and invoice.upload_user_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invoice not found"
@@ -144,13 +157,17 @@ def verify_invoice(invoice_id: int, db: Session = Depends(get_db)):
 @router.post("/batch/verify")
 def batch_verify_invoices(
     request: InvoiceBatchVerifyRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """批量验证发票"""
     tasks = []
     
     for invoice_id in request.invoice_ids:
-        invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+        query = db.query(Invoice).filter(Invoice.id == invoice_id)
+        if current_user.role != "admin":
+            query = query.filter(Invoice.upload_user_id == current_user.id)
+        invoice = query.first()
         if invoice:
             task_id = str(uuid.uuid4())
             db.add(AsyncTask(
@@ -178,11 +195,15 @@ def batch_verify_invoices(
 
 
 @router.get("/{invoice_id}/ocr-status")
-def get_ocr_status(invoice_id: int, db: Session = Depends(get_db)):
+def get_ocr_status(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """获取 OCR 识别状态"""
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     
-    if not invoice:
+    if not invoice or (current_user.role != "admin" and invoice.upload_user_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invoice not found"
