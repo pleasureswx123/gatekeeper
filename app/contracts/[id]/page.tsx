@@ -3,20 +3,42 @@
  */
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
-import { FileText, AlertCircle, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
+import { FileText, AlertCircle, CheckCircle, AlertTriangle, Clock, Download } from 'lucide-react';
 import { useContract } from '@/hooks/useData';
 import { useResourceTasks } from '@/hooks/useTaskProgress';
+import { API_ENDPOINTS } from '@/lib/api/config';
+import { downloadAuthenticatedFile } from '@/lib/api/download';
 
 export default function ContractDetailPage() {
   const params = useParams();
   const contractId = Number(params.id);
   const { contract, isLoading, error } = useContract(contractId);
   const { tasks } = useResourceTasks('contract', contractId);
+  const [actionError, setActionError] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
   const latestTask = tasks[0];
 
   const riskLevel = contract?.risk_level || 'unknown';
+
+  const handleDownload = async () => {
+    if (!contract) return;
+    setIsDownloading(true);
+    setActionError('');
+
+    try {
+      await downloadAuthenticatedFile(
+        API_ENDPOINTS.CONTRACTS_FILE(contract.id),
+        contract.file_name || `${contract.contract_number}.pdf`
+      );
+    } catch (err: any) {
+      setActionError(err.message || '合同文件下载失败');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -25,14 +47,26 @@ export default function ContractDetailPage() {
       <main className="flex-1 overflow-auto">
         <div className="bg-card border-b border-border sticky top-0 z-10">
           <div className="px-8 py-6">
-            <div className="flex items-center gap-3">
-              <FileText className="w-6 h-6 text-primary" />
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">
-                  {contract?.contract_name || '合同详情'}
-                </h2>
-                <p className="text-sm text-muted-foreground">{contract?.contract_number || `#${contractId}`}</p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText className="w-6 h-6 text-primary shrink-0" />
+                <div className="min-w-0">
+                  <h2 className="text-2xl font-bold text-foreground truncate">
+                    {contract?.contract_name || '合同详情'}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">{contract?.contract_number || `#${contractId}`}</p>
+                </div>
               </div>
+              {contract && (
+                <button
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className="flex items-center gap-2 px-4 py-2 bg-secondary/20 text-foreground rounded-lg hover:bg-secondary/30 border border-border disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4" />
+                  {isDownloading ? '下载中...' : '下载原文件'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -44,11 +78,25 @@ export default function ContractDetailPage() {
             <div className="text-red-400">合同加载失败，请确认后端服务已启动。</div>
           ) : (
             <div className="space-y-6">
+              {actionError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400">
+                  {actionError}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Info label="供应商" value={contract.supplier_name || '-'} />
                 <Info label="合同金额" value={`¥${Number(contract.amount || 0).toLocaleString()}`} />
                 <StatusCard label="分析状态" status={contract.status} />
                 <RiskCard level={riskLevel} score={contract.risk_score} />
+              </div>
+
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4">原始文件</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Info label="文件名" value={contract.file_name || '-'} />
+                  <Info label="文件大小" value={formatFileSize(contract.file_size)} />
+                </div>
               </div>
 
               {latestTask && (
@@ -99,6 +147,13 @@ export default function ContractDetailPage() {
       </main>
     </div>
   );
+}
+
+function formatFileSize(size?: number) {
+  if (!size) return '-';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function Info({ label, value }: { label: string; value: string }) {

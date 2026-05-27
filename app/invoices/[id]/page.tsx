@@ -8,9 +8,10 @@ import { useParams } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/config';
-import { AlertCircle, CheckCircle2, Clock, Receipt, RefreshCw, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Download, Receipt, RefreshCw, XCircle } from 'lucide-react';
 import { useInvoice } from '@/hooks/useData';
 import { useResourceTasks, useTaskMonitor } from '@/hooks/useTaskProgress';
+import { downloadAuthenticatedFile } from '@/lib/api/download';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -20,6 +21,7 @@ export default function InvoiceDetailPage() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { progress: activeProgress, result: activeResult } = useTaskMonitor(activeTaskId);
 
   const latestTask = tasks[0];
@@ -52,6 +54,23 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const handleDownload = async () => {
+    if (!invoice) return;
+    setIsDownloading(true);
+    setActionError(null);
+
+    try {
+      await downloadAuthenticatedFile(
+        API_ENDPOINTS.INVOICES_FILE(invoice.id),
+        invoice.file_name || `invoice-${invoice.id}.pdf`
+      );
+    } catch (err: any) {
+      setActionError(err.message || '发票文件下载失败');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-background">
       <Navigation />
@@ -68,14 +87,24 @@ export default function InvoiceDetailPage() {
                 </div>
               </div>
               {invoice && (
-                <button
-                  onClick={handleVerify}
-                  disabled={isVerifying || invoice.ocr_status !== 'completed'}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isVerifying ? 'animate-spin' : ''}`} />
-                  重新验真
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleDownload}
+                    disabled={isDownloading}
+                    className="flex items-center gap-2 px-4 py-2 bg-secondary/20 text-foreground rounded-lg hover:bg-secondary/30 border border-border disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" />
+                    {isDownloading ? '下载中...' : '下载原文件'}
+                  </button>
+                  <button
+                    onClick={handleVerify}
+                    disabled={isVerifying || invoice.ocr_status !== 'completed'}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isVerifying ? 'animate-spin' : ''}`} />
+                    重新验真
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -99,6 +128,14 @@ export default function InvoiceDetailPage() {
                 <Info label="税额" value={`¥${Number(invoice.tax_amount || 0).toLocaleString()}`} />
                 <Info label="价税合计" value={`¥${Number(invoice.total_amount || 0).toLocaleString()}`} />
                 <StatusCard invoice={invoice} />
+              </div>
+
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4">原始文件</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Info label="文件名" value={invoice.file_name || '-'} />
+                  <Info label="文件大小" value={formatFileSize(invoice.file_size)} />
+                </div>
               </div>
 
               {displayTask && (
@@ -170,6 +207,13 @@ export default function InvoiceDetailPage() {
       </main>
     </div>
   );
+}
+
+function formatFileSize(size?: number) {
+  if (!size) return '-';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function Info({ label, value }: { label: string; value: string }) {

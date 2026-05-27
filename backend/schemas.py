@@ -107,6 +107,8 @@ class ContractResponse(BaseModel):
     status: str
     risk_level: Optional[str]
     risk_score: Optional[float]
+    file_name: Optional[str]
+    file_size: Optional[int]
     analysis_result: Optional[Dict[str, Any]]
     llm_analysis_result: Optional[Dict[str, Any]]
     risks: List[ContractRiskResponse] = []
@@ -172,6 +174,8 @@ class InvoiceResponse(BaseModel):
     is_duplicate: bool
     is_voided: bool
     authenticity_verified: bool
+    file_name: Optional[str]
+    file_size: Optional[int]
     ocr_result: Optional[Dict[str, Any]]
     ocr_confidence: Optional[float]
     items: List[InvoiceItemResponse] = []

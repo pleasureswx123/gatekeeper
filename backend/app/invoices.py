@@ -2,6 +2,7 @@
 FastAPI 发票管理 API 路由
 """
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import InvoiceResponse, InvoiceUpload, InvoiceBatchVerifyRequest
@@ -109,6 +110,34 @@ def get_invoice(
         )
 
     return invoice
+
+
+@router.get("/{invoice_id}/file")
+def download_invoice_file(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """下载发票原始文件"""
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+
+    if not invoice or (current_user.role != "admin" and invoice.upload_user_id != current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found"
+        )
+
+    if not invoice.file_path or not os.path.exists(invoice.file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice file not found"
+        )
+
+    return FileResponse(
+        invoice.file_path,
+        filename=invoice.file_name or f"invoice-{invoice_id}{get_file_extension(invoice.file_path)}",
+        media_type="application/octet-stream",
+    )
 
 
 @router.get("/", response_model=list[InvoiceResponse])

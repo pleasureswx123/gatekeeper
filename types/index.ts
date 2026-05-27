@@ -53,6 +53,8 @@ export interface Contract {
   status: 'pending' | 'analyzing' | 'completed' | 'error';
   risk_level?: 'low' | 'medium' | 'high' | 'critical';
   risk_score?: number;
+  file_name?: string;
+  file_size?: number;
   analysis_result?: Record<string, any>;
   llm_analysis_result?: Record<string, any>;
   risks: ContractRisk[];
@@ -90,6 +92,8 @@ export interface Invoice {
   is_duplicate: boolean;
   is_voided: boolean;
   authenticity_verified: boolean;
+  file_name?: string;
+  file_size?: number;
   ocr_result?: Record<string, any>;
   ocr_confidence?: number;
   items: InvoiceItem[];

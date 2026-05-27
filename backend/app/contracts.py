@@ -2,6 +2,7 @@
 FastAPI 合同管理 API 路由
 """
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import ContractResponse, ContractUpload
@@ -173,6 +174,34 @@ def get_contract(
         )
     
     return contract
+
+
+@router.get("/{contract_id}/file")
+def download_contract_file(
+    contract_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """下载合同原始文件"""
+    contract = db.query(Contract).filter(Contract.id == contract_id).first()
+
+    if not contract or (current_user.role != "admin" and contract.upload_user_id != current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contract not found"
+        )
+
+    if not contract.file_path or not os.path.exists(contract.file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contract file not found"
+        )
+
+    return FileResponse(
+        contract.file_path,
+        filename=contract.file_name or f"contract-{contract_id}{get_file_extension(contract.file_path)}",
+        media_type="application/octet-stream",
+    )
 
 
 @router.get("/", response_model=list[ContractResponse])

@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
   CONTRACTS_LIST: '/contracts',
   CONTRACTS_UPLOAD: '/contracts/upload',
   CONTRACTS_GET: (id: number) => `/contracts/${id}`,
+  CONTRACTS_FILE: (id: number) => `/contracts/${id}/file`,
   CONTRACTS_RISKS: (id: number) => `/contracts/${id}/risks`,
   CONTRACTS_STATUS: (id: number) => `/contracts/${id}/analysis-status`,
 
@@ -26,6 +27,7 @@ export const API_ENDPOINTS = {
   INVOICES_LIST: '/invoices',
   INVOICES_UPLOAD: '/invoices/upload',
   INVOICES_GET: (id: number) => `/invoices/${id}`,
+  INVOICES_FILE: (id: number) => `/invoices/${id}/file`,
   INVOICES_VERIFY: (id: number) => `/invoices/${id}/verify`,
   INVOICES_BATCH_VERIFY: '/invoices/batch/verify',
   INVOICES_OCR_STATUS: (id: number) => `/invoices/${id}/ocr-status`,
