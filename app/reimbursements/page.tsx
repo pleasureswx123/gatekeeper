@@ -3,16 +3,20 @@
  */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { useReimbursements } from '@/hooks/useData';
-import { Plus, Search, Filter, FileText, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, FileText, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ReimbursementsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const { reimbursements, isLoading } = useReimbursements(0, 20, statusFilter);
+  const { reimbursements, isLoading } = useReimbursements(
+    0,
+    20,
+    statusFilter === 'all' ? undefined : statusFilter
+  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -20,7 +24,7 @@ export default function ReimbursementsPage() {
         return 'bg-green-500/10 text-green-400';
       case 'rejected':
         return 'bg-red-500/10 text-red-400';
-      case 'pending':
+      case 'pending_review':
         return 'bg-yellow-500/10 text-yellow-400';
       case 'submitted':
         return 'bg-blue-500/10 text-blue-400';
@@ -35,7 +39,7 @@ export default function ReimbursementsPage() {
         return '已批准';
       case 'rejected':
         return '已拒绝';
-      case 'pending':
+      case 'pending_review':
         return '待审批';
       case 'submitted':
         return '已提交';
@@ -50,7 +54,7 @@ export default function ReimbursementsPage() {
         return <CheckCircle2 className="w-4 h-4" />;
       case 'rejected':
         return <AlertCircle className="w-4 h-4" />;
-      case 'pending':
+      case 'pending_review':
       case 'submitted':
         return <Clock className="w-4 h-4" />;
       default:
@@ -107,7 +111,7 @@ export default function ReimbursementsPage() {
               >
                 <option value="all">所有状态</option>
                 <option value="submitted">已提交</option>
-                <option value="pending">待审批</option>
+                <option value="pending_review">待审批</option>
                 <option value="approved">已批准</option>
                 <option value="rejected">已拒绝</option>
               </select>
@@ -145,7 +149,7 @@ export default function ReimbursementsPage() {
                           {reimbursement.reimbursement_number}
                         </td>
                         <td className="px-6 py-4 text-sm text-foreground">
-                          ¥{reimbursement.total_amount?.toFixed(2) || '0.00'}
+                          ¥{Number(reimbursement.total_amount || 0).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">
                           {new Date(reimbursement.created_at).toLocaleDateString('zh-CN')}
@@ -174,7 +178,7 @@ export default function ReimbursementsPage() {
             <StatBox label="总报销单数" value={reimbursements?.length || 0} />
             <StatBox 
               label="待审批" 
-              value={reimbursements?.filter((r: any) => r.status === 'pending').length || 0}
+              value={reimbursements?.filter((r: any) => r.status === 'pending_review' || r.status === 'submitted').length || 0}
               isHighlight
             />
             <StatBox 

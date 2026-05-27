@@ -98,9 +98,11 @@ export interface ReimbursementVerification {
   verification_status: 'not_verified' | 'verified' | 'partial_verified' | 'failed';
   item_count: number;
   invoice_count: number;
+  receipt_count: number;
   matching_score: number;
   duplicate_invoice_count: number;
   invalid_invoice_count: number;
+  verification_result?: Record<string, any>;
 }
 
 export interface Reimbursement {
@@ -112,6 +114,8 @@ export interface Reimbursement {
   description?: string;
   items: ReimbursementItem[];
   verification?: ReimbursementVerification;
+  approval_date?: string;
+  approval_notes?: string;
   created_at: string;
 }
 

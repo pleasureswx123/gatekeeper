@@ -175,9 +175,11 @@ class ReimbursementVerificationResponse(BaseModel):
     verification_status: str
     item_count: int
     invoice_count: int
+    receipt_count: int = 0
     matching_score: Decimal
-    duplicate_invoice_count: int
-    invalid_invoice_count: int
+    duplicate_invoice_count: int = 0
+    invalid_invoice_count: int = 0
+    verification_result: Optional[Dict[str, Any]]
 
     class Config:
         from_attributes = True
@@ -188,10 +190,12 @@ class ReimbursementResponse(BaseModel):
     reimbursement_number: str
     total_amount: Decimal
     status: str
-    submission_date: str
+    submission_date: date
     description: Optional[str]
     items: List[ReimbursementItemResponse] = []
     verification: Optional[ReimbursementVerificationResponse]
+    approval_date: Optional[date]
+    approval_notes: Optional[str]
     created_at: datetime
 
     class Config:

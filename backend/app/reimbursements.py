@@ -4,11 +4,12 @@ FastAPI 报销管理 API 路由
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from database import get_db
-from schemas import ReimbursementCreate, ReimbursementResponse, ReimbursementItemResponse
-from models import Reimbursement, ReimbursementItem, ReimbursementVerification, User
+from schemas import ReimbursementCreate, ReimbursementResponse
+from models import Invoice, Reimbursement, ReimbursementItem, User
 from services.business_logic import reimbursement_service
 from deps import get_current_user
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 router = APIRouter(prefix="/api/reimbursements", tags=["reimbursements"])
 
@@ -20,6 +21,12 @@ def create_reimbursement(
     current_user: User = Depends(get_current_user),
 ):
     """创建报销单"""
+    if not reimbursement.items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reimbursement must contain at least one item"
+        )
+
     # 生成报销单号
     import uuid
     reimbursement_number = f"REIMB-{uuid.uuid4().hex[:8].upper()}"
@@ -37,22 +44,47 @@ def create_reimbursement(
     db.flush()
     
     # 添加报销项目
-    total_amount = 0
+    total_amount = Decimal("0")
     for item_data in reimbursement.items:
+        try:
+            item_amount = Decimal(str(item_data.get("amount", 0)))
+        except (InvalidOperation, ValueError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid reimbursement item amount"
+            )
+
+        if item_amount <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reimbursement item amount must be greater than 0"
+            )
+
+        invoice_id = item_data.get("invoice_id")
+        if invoice_id:
+            invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+            if not invoice or (current_user.role != "admin" and invoice.upload_user_id != current_user.id):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Invoice {invoice_id} not found"
+                )
+
         item = ReimbursementItem(
             reimbursement_id=db_reimbursement.id,
-            item_name=item_data.get("item_name"),
+            item_name=item_data.get("item_name") or item_data.get("description") or item_data.get("category"),
             category=item_data.get("category"),
-            amount=float(item_data.get("amount", 0)),
-            invoice_id=item_data.get("invoice_id"),
+            amount=item_amount,
+            invoice_id=invoice_id,
             receipt_file_path=item_data.get("receipt_file_path"),
             description=item_data.get("description")
         )
         db.add(item)
-        total_amount += float(item_data.get("amount", 0))
+        total_amount += item_amount
     
     db_reimbursement.total_amount = total_amount
     db.commit()
+
+    reimbursement_service.verify_reimbursement(db, db_reimbursement.id)
     db.refresh(db_reimbursement)
     
     return db_reimbursement
