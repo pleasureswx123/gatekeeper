@@ -6,7 +6,7 @@
 import { Navigation } from '@/components/Navigation';
 import { AlertCircle, CheckCircle2, Clock, CreditCard, FileText, Receipt, ShieldAlert, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
-import { useAuditLogs, useContracts, useInvoices, useReimbursements } from '@/hooks/useData';
+import { useAuditLogs, useContracts, useInvoices, useReimbursements, useSystemInfo } from '@/hooks/useData';
 import type { AuditLog } from '@/types';
 
 export default function Dashboard() {
@@ -14,8 +14,9 @@ export default function Dashboard() {
   const { invoices = [], isLoading: invoicesLoading } = useInvoices(0, 100);
   const { reimbursements = [], isLoading: reimbursementsLoading } = useReimbursements(0, 100);
   const { auditLogs = [], isLoading: logsLoading } = useAuditLogs(0, 6);
+  const { systemInfo, isLoading: systemLoading } = useSystemInfo();
 
-  const isLoading = contractsLoading || invoicesLoading || reimbursementsLoading || logsLoading;
+  const isLoading = contractsLoading || invoicesLoading || reimbursementsLoading || logsLoading || systemLoading;
   const highRiskContracts = contracts.filter((contract) => ['high', 'critical'].includes(contract.risk_level || '')).length;
   const duplicateInvoices = invoices.filter((invoice) => invoice.is_duplicate || invoice.is_voided || invoice.status === 'invalid').length;
   const pendingReimbursements = reimbursements.filter((item) => item.status === 'submitted' || item.status === 'pending_review').length;
@@ -127,9 +128,10 @@ export default function Dashboard() {
               <h4 className="font-semibold text-foreground mb-4">系统状态</h4>
               <div className="space-y-3">
                 <StatusItem label="数据库连接" status="正常" />
-                <StatusItem label="API 服务" status="正常" />
-                <StatusItem label="OCR 模式" status="火山方舟模型" />
-                <StatusItem label="发票验真" status="Mock 模式" />
+                <StatusItem label="API 服务" status={systemInfo?.status === 'healthy' ? '正常' : '异常'} tone={systemInfo?.status === 'healthy' ? 'success' : 'error'} />
+                <StatusItem label="任务模式" status={formatTaskMode(systemInfo?.background_task_mode)} />
+                <StatusItem label="发票验真" status={formatVerificationMode(systemInfo?.invoice_verification_mode)} tone={systemInfo?.invoice_verification_mode === 'mock' ? 'warning' : 'success'} />
+                <StatusItem label="合同模型" status={systemInfo?.ark_chat_model || '未配置'} tone={systemInfo?.ark_chat_model ? 'success' : 'warning'} />
               </div>
             </div>
 
@@ -187,16 +189,30 @@ function QuickActionCard({ title, description, href, icon }: any) {
   );
 }
 
-function StatusItem({ label, status }: any) {
+function StatusItem({ label, status, tone = 'success' }: any) {
+  const toneClass = tone === 'error' ? 'text-red-400' : tone === 'warning' ? 'text-yellow-400' : 'text-green-400';
+  const dotClass = tone === 'error' ? 'bg-red-400' : tone === 'warning' ? 'bg-yellow-400' : 'bg-green-400';
+
   return (
     <div className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg">
       <span className="text-sm text-muted-foreground">{label}</span>
       <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-green-400"></div>
-        <span className="text-sm font-medium text-green-400">{status}</span>
+        <div className={`w-2 h-2 rounded-full ${dotClass}`}></div>
+        <span className={`text-sm font-medium ${toneClass}`}>{status}</span>
       </div>
     </div>
   );
+}
+
+function formatTaskMode(mode?: string) {
+  if (mode === 'inline') return '本地同步';
+  if (mode === 'celery') return 'Celery 异步';
+  return mode || '未知';
+}
+
+function formatVerificationMode(mode?: string) {
+  if (mode === 'mock') return 'Mock 模式';
+  return mode || '未配置';
 }
 
 function StatsItem({ label, value }: any) {
