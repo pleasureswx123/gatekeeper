@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
+import { Suspense } from 'react'
+import { AuthGuard } from '@/components/AuthGuard'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -33,7 +35,9 @@ export default function RootLayout({
   return (
     <html lang="zh">
       <body className="font-sans antialiased bg-background">
-        {children}
+        <Suspense fallback={null}>
+          <AuthGuard>{children}</AuthGuard>
+        </Suspense>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

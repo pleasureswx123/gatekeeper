@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/config';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const searchParams = useSearchParams();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,15 +21,14 @@ export default function LoginPage() {
 
     try {
       const data = await apiClient.post(API_ENDPOINTS.AUTH_LOGIN, {
-        username: email,
+        username,
         password,
       });
 
-      localStorage.setItem('token', data.access_token);
       apiClient.setToken(data.access_token);
-      router.push('/');
-    } catch (err) {
-      setError('登录失败，请检查网络连接');
+      router.push(searchParams.get('redirect') || '/');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || '登录失败，请检查账号和密码');
     } finally {
       setIsLoading(false);
     }
@@ -42,11 +42,10 @@ export default function LoginPage() {
         password: 'demo123',
       });
 
-      localStorage.setItem('token', data.access_token);
       apiClient.setToken(data.access_token);
-      router.push('/');
+      router.push(searchParams.get('redirect') || '/');
     } catch (err) {
-      console.error('Demo login failed:', err);
+      setError('演示账号登录失败，请稍后重试');
     } finally {
       setIsLoading(false);
     }
@@ -71,13 +70,13 @@ export default function LoginPage() {
             {/* 邮箱输入 */}
             <div>
               <label className="block text-sm font-medium text-slate-200 mb-2">
-                邮箱地址
+                用户名
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="demo"
                 className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition"
                 required
               />
@@ -137,7 +136,7 @@ export default function LoginPage() {
         <div className="mt-6 p-4 bg-slate-900/50 border border-slate-800 rounded-lg">
           <p className="text-xs text-slate-400">
             <span className="font-semibold text-slate-300">演示账号：</span><br/>
-            邮箱：demo@gatekeeper.com<br/>
+            用户名：demo<br/>
             密码：demo123
           </p>
         </div>

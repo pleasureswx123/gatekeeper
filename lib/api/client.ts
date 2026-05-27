@@ -28,8 +28,11 @@ class ApiClient {
       (response) => response.data,
       (error: AxiosError) => {
         if (error.response?.status === 401) {
-          // 处理未认证
-          localStorage.removeItem('token');
+          this.clearToken();
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+            const redirect = encodeURIComponent(window.location.pathname || '/');
+            window.location.href = `/login?redirect=${redirect}`;
+          }
         }
         return Promise.reject(error);
       }
@@ -38,12 +41,29 @@ class ApiClient {
 
   setToken(token: string) {
     this.token = token;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('token', token);
+    }
     this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
   clearToken() {
     this.token = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
     delete this.client.defaults.headers.common['Authorization'];
+  }
+
+  getToken() {
+    if (this.token) return this.token;
+    if (typeof window === 'undefined') return null;
+
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      this.setToken(storedToken);
+    }
+    return storedToken;
   }
 
   get(url: string, config?: any) {
