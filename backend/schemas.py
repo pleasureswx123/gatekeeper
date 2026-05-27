@@ -111,6 +111,7 @@ class ContractResponse(BaseModel):
     file_size: Optional[int]
     analysis_result: Optional[Dict[str, Any]]
     llm_analysis_result: Optional[Dict[str, Any]]
+    analysis_error: Optional[str]
     risks: List[ContractRiskResponse] = []
     clauses: List[ContractClauseResponse] = []
     created_at: datetime

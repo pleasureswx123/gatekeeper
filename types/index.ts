@@ -57,6 +57,7 @@ export interface Contract {
   file_size?: number;
   analysis_result?: Record<string, any>;
   llm_analysis_result?: Record<string, any>;
+  analysis_error?: string;
   risks: ContractRisk[];
   clauses: ContractClause[];
   created_at: string;

@@ -84,6 +84,12 @@ export default function ContractDetailPage() {
                 </div>
               )}
 
+              {contract.analysis_error && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400">
+                  {contract.analysis_error}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Info label="供应商" value={contract.supplier_name || '-'} />
                 <Info label="合同金额" value={`¥${Number(contract.amount || 0).toLocaleString()}`} />
@@ -100,14 +106,19 @@ export default function ContractDetailPage() {
               </div>
 
               {latestTask && (
-                <div className="bg-card border border-border rounded-lg p-5">
+                <div className={`bg-card border rounded-lg p-5 ${latestTask.status === 'failed' ? 'border-red-500/40' : 'border-border'}`}>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold text-foreground">最近任务</h3>
-                    <span className="text-sm text-muted-foreground">{latestTask.status}</span>
+                    <span className={`text-sm ${latestTask.status === 'failed' ? 'text-red-400' : 'text-muted-foreground'}`}>
+                      {getTaskStatusLabel(latestTask.status)}
+                    </span>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-2">
-                    <div className="bg-primary h-2 rounded-full" style={{ width: `${latestTask.progress || 0}%` }} />
+                    <div className={`h-2 rounded-full ${latestTask.status === 'failed' ? 'bg-red-500' : latestTask.status === 'completed' ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${latestTask.progress || 0}%` }} />
                   </div>
+                  <p className="text-sm text-muted-foreground mt-3">
+                    {latestTask.status_message || latestTask.current_step || latestTask.error_message || '暂无任务详情'}
+                  </p>
                 </div>
               )}
 
@@ -167,15 +178,44 @@ function Info({ label, value }: { label: string; value: string }) {
 
 function StatusCard({ label, status }: { label: string; status: string }) {
   const completed = status === 'completed';
+  const failed = status === 'error';
   return (
     <div className="bg-card border border-border rounded-lg p-4">
       <p className="text-sm text-muted-foreground">{label}</p>
       <div className="flex items-center gap-2 mt-2">
-        {completed ? <CheckCircle className="w-5 h-5 text-green-400" /> : <Clock className="w-5 h-5 text-yellow-400" />}
-        <span className="font-semibold text-foreground">{completed ? '已完成' : status}</span>
+        {completed ? <CheckCircle className="w-5 h-5 text-green-400" /> : failed ? <AlertCircle className="w-5 h-5 text-red-400" /> : <Clock className="w-5 h-5 text-yellow-400" />}
+        <span className="font-semibold text-foreground">{getContractStatusLabel(status)}</span>
       </div>
     </div>
   );
+}
+
+function getContractStatusLabel(status: string) {
+  switch (status) {
+    case 'completed':
+      return '已完成';
+    case 'analyzing':
+      return '分析中';
+    case 'error':
+      return '分析失败';
+    case 'pending':
+      return '待分析';
+    default:
+      return status || '未知';
+  }
+}
+
+function getTaskStatusLabel(status: string) {
+  switch (status) {
+    case 'completed':
+      return '已完成';
+    case 'failed':
+      return '失败';
+    case 'processing':
+      return '处理中';
+    default:
+      return '待处理';
+  }
 }
 
 function RiskCard({ level, score }: { level: string; score?: number }) {
