@@ -11,7 +11,10 @@ export function useTaskProgress(taskId: string | null) {
     taskId ? API_ENDPOINTS.TASKS_STATUS(taskId) : null,
     async (url) => apiClient.get(url),
     {
-      refreshInterval: 2000, // 每 2 秒刷新一次
+      refreshInterval: (data) => {
+        if (!data || ['completed', 'failed'].includes(data.status)) return 0;
+        return 2000;
+      },
       revalidateOnFocus: false,
     }
   );
@@ -28,7 +31,11 @@ export function useTaskResult(taskId: string | null) {
     taskId ? API_ENDPOINTS.TASKS_RESULT(taskId) : null,
     async (url) => apiClient.get(url),
     {
-      refreshInterval: 5000, // 每 5 秒刷新一次
+      refreshInterval: (data) => {
+        if (!data || ['completed', 'failed'].includes(data.status)) return 0;
+        return 3000;
+      },
+      revalidateOnFocus: false,
     }
   );
 
@@ -36,6 +43,18 @@ export function useTaskResult(taskId: string | null) {
     result: data as TaskResult,
     isLoading,
     error,
+  };
+}
+
+export function useTaskMonitor(taskId: string | null) {
+  const progressState = useTaskProgress(taskId);
+  const resultState = useTaskResult(taskId);
+
+  return {
+    ...progressState,
+    result: resultState.result,
+    resultError: resultState.error,
+    isResultLoading: resultState.isLoading,
   };
 }
 

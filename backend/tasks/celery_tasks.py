@@ -115,9 +115,21 @@ def invoice_ocr_recognition(self, invoice_id: int, image_path: str):
         ).first()
         
         if task:
+            progress = TaskProgress(
+                task_id=task.id,
+                progress_percentage=100,
+                current_step="OCR recognition failed",
+                status_message=str(e)
+            )
+            db.add(progress)
             task.status = "failed"
             task.error_message = str(e)
             task.completed_at = datetime.utcnow()
+            task.result = {
+                "invoice_id": invoice_id,
+                "status": "error",
+                "error_message": str(e)
+            }
             db.commit()
         
         # 重试逻辑
@@ -209,9 +221,21 @@ def invoice_verify_authenticity(self, invoice_id: int):
         ).first()
         
         if task:
+            progress = TaskProgress(
+                task_id=task.id,
+                progress_percentage=100,
+                current_step="Verification failed",
+                status_message=str(e)
+            )
+            db.add(progress)
             task.status = "failed"
             task.error_message = str(e)
             task.completed_at = datetime.utcnow()
+            task.result = {
+                "invoice_id": invoice_id,
+                "status": "error",
+                "error_message": str(e)
+            }
             db.commit()
         
         if self.request.retries < 3:
@@ -349,9 +373,21 @@ def contract_analyze_risks(self, contract_id: int, contract_text: str):
         ).first()
         
         if task:
+            progress = TaskProgress(
+                task_id=task.id,
+                progress_percentage=100,
+                current_step="Analysis failed",
+                status_message=str(e)
+            )
+            db.add(progress)
             task.status = "failed"
             task.error_message = str(e)
             task.completed_at = datetime.utcnow()
+            task.result = {
+                "contract_id": contract_id,
+                "status": "error",
+                "error_message": str(e)
+            }
             db.commit()
         
         if self.request.retries < 3:

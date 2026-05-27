@@ -7,7 +7,7 @@ from database import get_db
 from schemas import ContractResponse, ContractUpload
 from models import Contract, AsyncTask, User
 from services.business_logic import invoice_service
-from utils.file_handler import save_upload_file, is_allowed_file, get_file_size
+from utils.file_handler import save_upload_file, get_file_extension, get_file_size
 from tasks.celery_tasks import contract_analyze_risks
 from config import settings
 from deps import get_current_user
@@ -15,6 +15,8 @@ import os
 import uuid
 
 router = APIRouter(prefix="/api/contracts", tags=["contracts"])
+
+CONTRACT_EXTENSIONS = {".pdf", ".doc", ".docx"}
 
 
 def extract_pdf_text(file_path: str) -> str:
@@ -31,6 +33,13 @@ def extract_pdf_text(file_path: str) -> str:
         return ""
 
 
+def extract_contract_text(file_path: str) -> str:
+    """从合同文件中提取文本，暂时完整支持 PDF，Word 作为待增强能力。"""
+    if get_file_extension(file_path) == ".pdf":
+        return extract_pdf_text(file_path)
+    return ""
+
+
 @router.post("/upload")
 async def upload_contract(
     file: UploadFile = File(...),
@@ -42,10 +51,10 @@ async def upload_contract(
 ):
     """上传合同文件"""
     # 检查文件类型
-    if not is_allowed_file(file.filename):
+    if get_file_extension(file.filename) not in CONTRACT_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File type not allowed"
+            detail="Only PDF, DOC and DOCX contract files are supported"
         )
     
     # 保存文件
@@ -57,12 +66,12 @@ async def upload_contract(
         os.remove(file_path)
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File size exceeds limit"
+            detail="File size exceeds 50MB limit"
         )
     
     # 创建合同记录
     contract = Contract(
-        contract_number=f"CTR-{file.filename.split('.')[0]}",
+        contract_number=f"CTR-{uuid.uuid4().hex[:10].upper()}",
         contract_name=contract_name or file.filename,
         supplier_name=supplier_name,
         amount=amount,
@@ -78,7 +87,7 @@ async def upload_contract(
     db.refresh(contract)
     
     # 提取合同文本
-    contract_text = extract_pdf_text(file_path)
+    contract_text = extract_contract_text(file_path)
     
     task_id = str(uuid.uuid4())
     db.add(AsyncTask(

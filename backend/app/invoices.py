@@ -7,7 +7,7 @@ from database import get_db
 from schemas import InvoiceResponse, InvoiceUpload, InvoiceBatchVerifyRequest
 from models import Invoice, AsyncTask, User
 from services.business_logic import invoice_service
-from utils.file_handler import save_upload_file, is_allowed_file, get_file_size
+from utils.file_handler import save_upload_file, get_file_extension, get_file_size
 from tasks.celery_tasks import invoice_ocr_recognition, invoice_verify_authenticity
 from config import settings
 from deps import get_current_user
@@ -15,6 +15,8 @@ import os
 import uuid
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
+
+INVOICE_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
 
 
 @router.post("/upload")
@@ -26,10 +28,10 @@ async def upload_invoice(
 ):
     """上传发票文件"""
     # 检查文件类型
-    if not is_allowed_file(file.filename):
+    if get_file_extension(file.filename) not in INVOICE_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File type not allowed"
+            detail="Only PDF, PNG, JPG and JPEG invoice files are supported"
         )
     
     # 保存文件
@@ -41,7 +43,7 @@ async def upload_invoice(
         os.remove(file_path)
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File size exceeds limit"
+            detail="File size exceeds 50MB limit"
         )
     
     # 创建发票记录

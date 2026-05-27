@@ -3,7 +3,7 @@
  */
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/config';
-import { useTaskProgress } from '@/hooks/useTaskProgress';
-import { Upload, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { useTaskMonitor } from '@/hooks/useTaskProgress';
+import { Upload, CheckCircle, AlertCircle, Loader, XCircle } from 'lucide-react';
 
 export default function ContractUploadPage() {
   const router = useRouter();
@@ -25,13 +25,28 @@ export default function ContractUploadPage() {
   const [contractId, setContractId] = useState<number | null>(null);
   const [error, setError] = useState<string>('');
 
-  const { progress } = useTaskProgress(taskId);
+  const { progress, result } = useTaskMonitor(taskId);
+
+  useEffect(() => {
+    if (progress?.status === 'completed' || progress?.status === 'failed') {
+      setUploading(false);
+    }
+  }, [progress?.status]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type !== 'application/pdf') {
-        setError('请选择 PDF 文件');
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
+      const allowedExtensions = ['.pdf', '.doc', '.docx'];
+      const lowerName = selectedFile.name.toLowerCase();
+      const hasAllowedExtension = allowedExtensions.some((extension) => lowerName.endsWith(extension));
+
+      if (!allowedTypes.includes(selectedFile.type) && !hasAllowedExtension) {
+        setError('请选择 PDF、DOC 或 DOCX 合同文件');
         return;
       }
       setFile(selectedFile);
@@ -90,7 +105,7 @@ export default function ContractUploadPage() {
         <Card>
           <CardHeader>
             <CardTitle>合同文件</CardTitle>
-            <CardDescription>支持 PDF 格式，最大 50MB</CardDescription>
+            <CardDescription>支持 PDF、DOC 和 DOCX 格式，最大 50MB</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {!taskId ? (
@@ -100,7 +115,7 @@ export default function ContractUploadPage() {
                      onClick={() => document.getElementById('file-input')?.click()}>
                   <Upload className="w-12 h-12 mx-auto mb-2 text-muted-foreground" />
                   <p className="font-medium mb-1">点击选择文件或拖拽上传</p>
-                  <p className="text-sm text-muted-foreground mb-4">支持 PDF 格式</p>
+                  <p className="text-sm text-muted-foreground mb-4">支持 PDF、DOC、DOCX 格式</p>
                   {file && (
                     <p className="text-sm text-green-600 font-medium">
                       已选择: {file.name}
@@ -111,7 +126,7 @@ export default function ContractUploadPage() {
                 <input
                   id="file-input"
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.doc,.docx"
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -180,12 +195,20 @@ export default function ContractUploadPage() {
               <>
                 {/* 处理进度显示 */}
                 <div className="space-y-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                  <div className={`border rounded p-4 ${progress?.status === 'failed' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
                     <div className="flex items-start gap-2 mb-3">
-                      <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      {progress?.status === 'failed' ? (
+                        <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      )}
                       <div>
-                        <p className="font-medium text-sm">合同已上传</p>
-                        <p className="text-xs text-muted-foreground">正在进行智能分析...</p>
+                        <p className="font-medium text-sm">
+                          {progress?.status === 'failed' ? '合同分析失败' : '合同已上传'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {progress?.status === 'completed' ? '智能分析已完成' : progress?.status === 'failed' ? '请查看错误信息后重新上传' : '正在进行智能分析...'}
+                        </p>
                       </div>
                     </div>
 
@@ -214,13 +237,37 @@ export default function ContractUploadPage() {
                     )}
                   </div>
 
-                  {progress?.progress_percentage === 100 && (
+                  {progress?.status === 'failed' && (
+                    <div className="bg-red-50 border border-red-200 rounded p-3 flex items-start gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-red-700">
+                        {result?.error_message || progress?.status_message || '分析失败，请重新上传或检查模型配置'}
+                      </p>
+                    </div>
+                  )}
+
+                  {progress?.status === 'completed' && (
                     <Button
                       onClick={handleViewContract}
                       className="w-full"
                       size="lg"
                     >
                       查看分析结果
+                    </Button>
+                  )}
+
+                  {progress?.status === 'failed' && (
+                    <Button
+                      onClick={() => {
+                        setTaskId(null);
+                        setContractId(null);
+                        setError('');
+                      }}
+                      variant="outline"
+                      className="w-full"
+                      size="lg"
+                    >
+                      重新上传
                     </Button>
                   )}
                 </div>

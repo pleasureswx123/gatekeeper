@@ -3,14 +3,14 @@
  */
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/config';
-import { useTaskProgress } from '@/hooks/useTaskProgress';
-import { Upload, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { useTaskMonitor } from '@/hooks/useTaskProgress';
+import { Upload, CheckCircle, AlertCircle, Loader, XCircle } from 'lucide-react';
 
 export default function InvoiceUploadPage() {
   const router = useRouter();
@@ -20,7 +20,13 @@ export default function InvoiceUploadPage() {
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
   const [error, setError] = useState<string>('');
 
-  const { progress } = useTaskProgress(taskId);
+  const { progress, result } = useTaskMonitor(taskId);
+
+  useEffect(() => {
+    if (progress?.status === 'completed' || progress?.status === 'failed') {
+      setUploading(false);
+    }
+  }, [progress?.status]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -137,12 +143,20 @@ export default function InvoiceUploadPage() {
               <>
                 {/* 处理进度显示 */}
                 <div className="space-y-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                  <div className={`border rounded p-4 ${progress?.status === 'failed' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
                     <div className="flex items-start gap-2 mb-3">
-                      <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      {progress?.status === 'failed' ? (
+                        <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      )}
                       <div>
-                        <p className="font-medium text-sm">发票已上传</p>
-                        <p className="text-xs text-muted-foreground">正在进行 OCR 识别...</p>
+                        <p className="font-medium text-sm">
+                          {progress?.status === 'failed' ? '发票识别失败' : '发票已上传'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {progress?.status === 'completed' ? 'OCR 识别和模拟验真已完成' : progress?.status === 'failed' ? '请查看错误信息后重新上传' : '正在进行 OCR 识别...'}
+                        </p>
                       </div>
                     </div>
 
@@ -171,13 +185,37 @@ export default function InvoiceUploadPage() {
                     )}
                   </div>
 
-                  {progress?.progress_percentage === 100 && (
+                  {progress?.status === 'failed' && (
+                    <div className="bg-red-50 border border-red-200 rounded p-3 flex items-start gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-red-700">
+                        {result?.error_message || progress?.status_message || '识别失败，请重新上传或检查模型配置'}
+                      </p>
+                    </div>
+                  )}
+
+                  {progress?.status === 'completed' && (
                     <Button
                       onClick={handleViewInvoice}
                       className="w-full"
                       size="lg"
                     >
                       查看识别结果
+                    </Button>
+                  )}
+
+                  {progress?.status === 'failed' && (
+                    <Button
+                      onClick={() => {
+                        setTaskId(null);
+                        setInvoiceId(null);
+                        setError('');
+                      }}
+                      variant="outline"
+                      className="w-full"
+                      size="lg"
+                    >
+                      重新上传
                     </Button>
                   )}
                 </div>
