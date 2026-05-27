@@ -71,10 +71,7 @@ export default function ContractUploadPage() {
 
       const response = await apiClient.uploadFile(
         API_ENDPOINTS.CONTRACTS_UPLOAD,
-        formData,
-        (progress) => {
-          console.log(`Upload progress: ${progress}%`);
-        }
+        formData
       );
 
       setContractId(response.contract_id);

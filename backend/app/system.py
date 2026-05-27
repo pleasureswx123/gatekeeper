@@ -25,8 +25,10 @@ def get_system_info(
         "database": db_driver,
         "background_task_mode": settings.BACKGROUND_TASK_MODE,
         "invoice_verification_mode": settings.INVOICE_VERIFICATION_MODE,
+        "ark_api_key_configured": bool(settings.ARK_API_KEY),
         "ark_base_url": settings.ARK_BASE_URL,
         "ark_chat_model": settings.ARK_CHAT_MODEL,
         "auto_create_tables": settings.AUTO_CREATE_TABLES,
+        "demo_user_enabled": settings.DEMO_USER_ENABLED,
         "current_user": current_user.username,
     }

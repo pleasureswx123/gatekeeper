@@ -147,7 +147,7 @@ export default function InvoiceDetailPage() {
                     </span>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-2">
-                    <div className={`h-2 rounded-full ${displayTask.status === 'failed' ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${taskPercent}%` }} />
+                    <div className={`h-2 rounded-full ${displayTask.status === 'failed' ? 'bg-red-500' : displayTask.status === 'completed' ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${taskPercent}%` }} />
                   </div>
                   <p className="text-sm text-muted-foreground mt-3">
                     {displayTask.status_message || displayTask.current_step || activeResult?.error_message || '暂无任务详情'}

@@ -57,10 +57,7 @@ export default function InvoiceUploadPage() {
 
       const response = await apiClient.uploadFile(
         API_ENDPOINTS.INVOICES_UPLOAD,
-        formData,
-        (progress) => {
-          console.log(`Upload progress: ${progress}%`);
-        }
+        formData
       );
 
       setInvoiceId(response.invoice_id);

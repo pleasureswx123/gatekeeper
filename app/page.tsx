@@ -131,6 +131,7 @@ export default function Dashboard() {
                 <StatusItem label="API 服务" status={systemInfo?.status === 'healthy' ? '正常' : '异常'} tone={systemInfo?.status === 'healthy' ? 'success' : 'error'} />
                 <StatusItem label="任务模式" status={formatTaskMode(systemInfo?.background_task_mode)} />
                 <StatusItem label="发票验真" status={formatVerificationMode(systemInfo?.invoice_verification_mode)} tone={systemInfo?.invoice_verification_mode === 'mock' ? 'warning' : 'success'} />
+                <StatusItem label="Ark Key" status={systemInfo?.ark_api_key_configured ? '已配置' : '未配置'} tone={systemInfo?.ark_api_key_configured ? 'success' : 'error'} />
                 <StatusItem label="合同模型" status={systemInfo?.ark_chat_model || '未配置'} tone={systemInfo?.ark_chat_model ? 'success' : 'warning'} />
               </div>
             </div>
