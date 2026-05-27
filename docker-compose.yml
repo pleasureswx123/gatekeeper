@@ -1,0 +1,111 @@
+name: Gatekeeper
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: gatekeeper-postgres
+    environment:
+      POSTGRES_USER: gatekeeper
+      POSTGRES_PASSWORD: gatekeeper123
+      POSTGRES_DB: gatekeeper_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gatekeeper"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存和消息队列
+  redis:
+    image: redis:7-alpine
+    container_name: gatekeeper-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI 后端应用
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: gatekeeper-backend
+    env_file:
+      - backend/.env
+    environment:
+      DATABASE_URL: postgresql://gatekeeper:gatekeeper123@postgres:5432/gatekeeper_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      ARK_API_KEY: ${ARK_API_KEY}
+      ARK_BASE_URL: ${ARK_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      ARK_CHAT_MODEL: ${ARK_CHAT_MODEL:-doubao-seed-2-0-lite-260428}
+      INVOICE_VERIFICATION_MODE: ${INVOICE_VERIFICATION_MODE:-mock}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+      - ./uploads:/app/uploads
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: gatekeeper-celery-worker
+    env_file:
+      - backend/.env
+    environment:
+      DATABASE_URL: postgresql://gatekeeper:gatekeeper123@postgres:5432/gatekeeper_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      ARK_API_KEY: ${ARK_API_KEY}
+      ARK_BASE_URL: ${ARK_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      ARK_CHAT_MODEL: ${ARK_CHAT_MODEL:-doubao-seed-2-0-lite-260428}
+      INVOICE_VERIFICATION_MODE: ${INVOICE_VERIFICATION_MODE:-mock}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+      - ./uploads:/app/uploads
+    command: celery -A celery_app worker --loglevel=info --concurrency=4
+
+  # Celery Flower（监控工具）
+  celery_flower:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: gatekeeper-celery-flower
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: celery -A celery_app flower --port=5555
+
+volumes:
+  postgres_data:
+  redis_data:
