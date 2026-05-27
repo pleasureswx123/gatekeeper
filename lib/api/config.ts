@@ -13,10 +13,10 @@ export const API_ENDPOINTS = {
   SYSTEM_INFO: '/system/info',
 
   // 审计日志
-  AUDIT_LOGS_LIST: '/audit-logs',
+  AUDIT_LOGS_LIST: '/audit-logs/',
 
   // 合同
-  CONTRACTS_LIST: '/contracts',
+  CONTRACTS_LIST: '/contracts/',
   CONTRACTS_UPLOAD: '/contracts/upload',
   CONTRACTS_GET: (id: number) => `/contracts/${id}`,
   CONTRACTS_FILE: (id: number) => `/contracts/${id}/file`,
@@ -24,7 +24,7 @@ export const API_ENDPOINTS = {
   CONTRACTS_STATUS: (id: number) => `/contracts/${id}/analysis-status`,
 
   // 发票
-  INVOICES_LIST: '/invoices',
+  INVOICES_LIST: '/invoices/',
   INVOICES_UPLOAD: '/invoices/upload',
   INVOICES_GET: (id: number) => `/invoices/${id}`,
   INVOICES_FILE: (id: number) => `/invoices/${id}/file`,
@@ -33,8 +33,8 @@ export const API_ENDPOINTS = {
   INVOICES_OCR_STATUS: (id: number) => `/invoices/${id}/ocr-status`,
 
   // 报销
-  REIMBURSEMENTS_LIST: '/reimbursements',
-  REIMBURSEMENTS_CREATE: '/reimbursements',
+  REIMBURSEMENTS_LIST: '/reimbursements/',
+  REIMBURSEMENTS_CREATE: '/reimbursements/',
   REIMBURSEMENTS_GET: (id: number) => `/reimbursements/${id}`,
   REIMBURSEMENTS_VERIFY: (id: number) => `/reimbursements/${id}/verify`,
   REIMBURSEMENTS_APPROVE: (id: number) => `/reimbursements/${id}/approve`,
