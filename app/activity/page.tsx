@@ -12,10 +12,12 @@ import type { AuditLog } from '@/types';
 export default function ActivityPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [resourceType, setResourceType] = useState('all');
   const { auditLogs = [], isLoading, error } = useAuditLogs(
     0,
     100,
-    filterType === 'all' ? undefined : filterType
+    filterType === 'all' ? undefined : filterType,
+    resourceType === 'all' ? undefined : resourceType
   );
 
   const filteredActivities = useMemo(() => {
@@ -52,8 +54,8 @@ export default function ActivityPage() {
         </div>
 
         <div className="p-8 space-y-6 max-w-5xl">
-          <div className="flex gap-4">
-            <div className="flex-1 relative">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 relative min-w-0">
               <Search className="w-5 h-5 absolute left-3 top-3 text-muted-foreground" />
               <input
                 type="text"
@@ -79,6 +81,17 @@ export default function ActivityPage() {
               <option value="reimbursement_verified">报销校验</option>
               <option value="reimbursement_approved">报销批准</option>
               <option value="reimbursement_rejected">报销拒绝</option>
+            </select>
+            <select
+              value={resourceType}
+              onChange={(e) => setResourceType(e.target.value)}
+              className="px-4 py-2 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+            >
+              <option value="all">全部资源</option>
+              <option value="contract">合同</option>
+              <option value="invoice">发票</option>
+              <option value="reimbursement">报销单</option>
+              <option value="user">用户</option>
             </select>
           </div>
 
