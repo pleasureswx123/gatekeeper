@@ -15,6 +15,14 @@ from decimal import Decimal, InvalidOperation
 router = APIRouter(prefix="/api/reimbursements", tags=["reimbursements"])
 
 
+def can_review_reimbursements(user: User) -> bool:
+    return user.role in ("admin", "reviewer")
+
+
+def can_access_reimbursement(user: User, reimbursement: Reimbursement) -> bool:
+    return can_review_reimbursements(user) or reimbursement.submitter_id == user.id
+
+
 @router.post("/", response_model=ReimbursementResponse)
 def create_reimbursement(
     reimbursement: ReimbursementCreate,
@@ -113,7 +121,7 @@ def get_reimbursement(
         Reimbursement.id == reimbursement_id
     ).first()
     
-    if not reimbursement or (current_user.role != "admin" and reimbursement.submitter_id != current_user.id):
+    if not reimbursement or not can_access_reimbursement(current_user, reimbursement):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reimbursement not found"
@@ -132,7 +140,7 @@ def list_reimbursements(
 ):
     """列表查询报销单"""
     query = db.query(Reimbursement)
-    if current_user.role != "admin":
+    if not can_review_reimbursements(current_user):
         query = query.filter(Reimbursement.submitter_id == current_user.id)
     
     if status:
@@ -153,7 +161,7 @@ def verify_reimbursement(
         Reimbursement.id == reimbursement_id
     ).first()
     
-    if not reimbursement or (current_user.role != "admin" and reimbursement.submitter_id != current_user.id):
+    if not reimbursement or not can_access_reimbursement(current_user, reimbursement):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reimbursement not found"
@@ -193,7 +201,7 @@ def approve_reimbursement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reimbursement not found"
         )
-    if current_user.role not in ("admin", "reviewer"):
+    if not can_review_reimbursements(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only reviewers or admins can approve reimbursements"
@@ -242,7 +250,7 @@ def reject_reimbursement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reimbursement not found"
         )
-    if current_user.role not in ("admin", "reviewer"):
+    if not can_review_reimbursements(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only reviewers or admins can reject reimbursements"

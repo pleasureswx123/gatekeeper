@@ -18,6 +18,8 @@ export default function ReimbursementDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [approvalNotes, setApprovalNotes] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
   const { currentUser } = useCurrentUser();
 
   const fetchReimbursement = useCallback(async () => {
@@ -57,11 +59,13 @@ export default function ReimbursementDetailPage() {
         await apiClient.post(`/reimbursements/${id}/verify`);
       }
       if (action === 'approve') {
-        await apiClient.put(`/reimbursements/${id}/approve`);
+        await apiClient.put(`/reimbursements/${id}/approve`, undefined, {
+          params: { approval_notes: approvalNotes },
+        });
       }
       if (action === 'reject') {
         await apiClient.put(`/reimbursements/${id}/reject`, undefined, {
-          params: { rejection_reason: '审批驳回' },
+          params: { rejection_reason: rejectionReason || '审批驳回' },
         });
       }
       await fetchReimbursement();
@@ -245,21 +249,46 @@ export default function ReimbursementDetailPage() {
           </div>
 
           {reimbursement.status === 'submitted' && canReview && (
-            <div className="flex gap-3">
-              <button
-                onClick={() => runAction('approve')}
-                disabled={isActionLoading}
-                className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90 transition font-medium disabled:opacity-50"
-              >
-                批准
-              </button>
-              <button
-                onClick={() => runAction('reject')}
-                disabled={isActionLoading}
-                className="flex-1 bg-red-500/10 text-red-400 py-2 rounded-lg hover:bg-red-500/20 transition font-medium disabled:opacity-50"
-              >
-                拒绝
-              </button>
+            <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+              <h3 className="text-lg font-semibold text-foreground">审批处理</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">批准备注</label>
+                  <textarea
+                    value={approvalNotes}
+                    onChange={(e) => setApprovalNotes(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-2 bg-secondary/20 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none"
+                    placeholder="可选"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">拒绝原因</label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-2 bg-secondary/20 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none"
+                    placeholder="拒绝时建议填写原因"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => runAction('approve')}
+                  disabled={isActionLoading}
+                  className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90 transition font-medium disabled:opacity-50"
+                >
+                  批准
+                </button>
+                <button
+                  onClick={() => runAction('reject')}
+                  disabled={isActionLoading}
+                  className="flex-1 bg-red-500/10 text-red-400 py-2 rounded-lg hover:bg-red-500/20 transition font-medium disabled:opacity-50"
+                >
+                  拒绝
+                </button>
+              </div>
             </div>
           )}
 
