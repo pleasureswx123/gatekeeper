@@ -8,6 +8,7 @@ from models import Invoice, Contract, AsyncTask, TaskProgress
 from services.business_logic import invoice_service, reimbursement_service
 from services.volcano_service import volcano_client
 from utils.file_handler import get_file_extension
+from utils.audit import write_audit_log
 from datetime import datetime
 import json
 import logging
@@ -26,6 +27,34 @@ def _create_progress(db, task_id: int, percentage: int, step: str, message: str)
     db.add(progress)
     db.commit()
     return progress
+
+
+def _resource_owner_id(db, resource_type: str, resource_id: int) -> int | None:
+    if resource_type == "contract":
+        resource = db.query(Contract).filter(Contract.id == resource_id).first()
+        return resource.upload_user_id if resource else None
+    if resource_type == "invoice":
+        resource = db.query(Invoice).filter(Invoice.id == resource_id).first()
+        return resource.upload_user_id if resource else None
+    return None
+
+
+def _write_task_audit_log(db, task: AsyncTask, action: str, changes: dict):
+    if not task:
+        return
+
+    write_audit_log(
+        db,
+        action=action,
+        resource_type=task.resource_type or "task",
+        resource_id=task.resource_id,
+        user_id=_resource_owner_id(db, task.resource_type, task.resource_id),
+        changes={
+            "task_id": task.task_id,
+            "task_type": task.task_type,
+            **changes,
+        },
+    )
 
 
 def _normalize_severity(value: str) -> str:
@@ -212,6 +241,15 @@ def invoice_ocr_recognition(self, invoice_id: int, image_path: str):
                 "error_message": invoice.ocr_error
             }
             db.commit()
+            _write_task_audit_log(
+                db,
+                task,
+                "task_failed",
+                {
+                    "invoice_id": invoice_id,
+                    "error_message": invoice.ocr_error,
+                },
+            )
             return {"status": "error", "invoice_id": invoice_id, "message": invoice.ocr_error}
         
         # 更新进度
@@ -232,6 +270,17 @@ def invoice_ocr_recognition(self, invoice_id: int, image_path: str):
             "is_duplicate": is_duplicate
         }
         db.commit()
+        _write_task_audit_log(
+            db,
+            task,
+            "task_completed",
+            {
+                "invoice_id": invoice_id,
+                "is_valid": is_valid,
+                "is_duplicate": is_duplicate,
+                "invoice_status": invoice.status,
+            },
+        )
         
         return {"status": "success", "invoice_id": invoice_id}
     
@@ -258,6 +307,15 @@ def invoice_ocr_recognition(self, invoice_id: int, image_path: str):
                 "error_message": str(e)
             }
             db.commit()
+            _write_task_audit_log(
+                db,
+                task,
+                "task_failed",
+                {
+                    "invoice_id": invoice_id,
+                    "error_message": str(e),
+                },
+            )
         
         # 重试逻辑
         if self.request.retries < 3:
@@ -344,6 +402,16 @@ def invoice_verify_authenticity(self, invoice_id: int):
             "is_duplicate": is_duplicate
         }
         db.commit()
+        _write_task_audit_log(
+            db,
+            task,
+            "task_completed",
+            {
+                "invoice_id": invoice_id,
+                "is_valid": is_valid,
+                "is_duplicate": is_duplicate,
+            },
+        )
         
         return {"status": "success", "is_valid": is_valid, "is_duplicate": is_duplicate}
     
@@ -370,6 +438,15 @@ def invoice_verify_authenticity(self, invoice_id: int):
                 "error_message": str(e)
             }
             db.commit()
+            _write_task_audit_log(
+                db,
+                task,
+                "task_failed",
+                {
+                    "invoice_id": invoice_id,
+                    "error_message": str(e),
+                },
+            )
         
         if self.request.retries < 3:
             raise self.retry(exc=e, countdown=60)
@@ -503,6 +580,16 @@ def contract_analyze_risks(self, contract_id: int, contract_text: str):
             "risk_level": risk_level
         }
         db.commit()
+        _write_task_audit_log(
+            db,
+            task,
+            "task_completed",
+            {
+                "contract_id": contract_id,
+                "risk_score": risk_score,
+                "risk_level": risk_level,
+            },
+        )
         
         return {
             "status": "success",
@@ -533,6 +620,15 @@ def contract_analyze_risks(self, contract_id: int, contract_text: str):
                 "error_message": str(e)
             }
             db.commit()
+            _write_task_audit_log(
+                db,
+                task,
+                "task_failed",
+                {
+                    "contract_id": contract_id,
+                    "error_message": str(e),
+                },
+            )
         
         if self.request.retries < 3:
             raise self.retry(exc=e, countdown=60)
