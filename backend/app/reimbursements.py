@@ -211,6 +211,11 @@ def approve_reimbursement(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only reviewers or admins can approve reimbursements"
         )
+    if reimbursement.status not in ("submitted", "pending_review"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Reimbursement is already {reimbursement.status}"
+        )
     
     reimbursement.status = "approved"
     reimbursement.approver_id = current_user.id
@@ -259,6 +264,11 @@ def reject_reimbursement(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only reviewers or admins can reject reimbursements"
+        )
+    if reimbursement.status not in ("submitted", "pending_review"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Reimbursement is already {reimbursement.status}"
         )
     
     reimbursement.status = "rejected"
