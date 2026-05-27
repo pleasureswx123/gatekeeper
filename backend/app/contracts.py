@@ -115,6 +115,19 @@ async def upload_contract(
         contract.status = "error"
         contract.analysis_error = "未能从合同文件中提取可分析文本，请上传可复制文本的 PDF 或 DOCX 文件"
         db.commit()
+        write_audit_log(
+            db,
+            action="contract_upload_failed",
+            resource_type="contract",
+            resource_id=contract.id,
+            user_id=current_user.id,
+            changes={
+                "contract_number": contract.contract_number,
+                "contract_name": contract.contract_name,
+                "file_name": file.filename,
+                "error_message": contract.analysis_error,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=contract.analysis_error

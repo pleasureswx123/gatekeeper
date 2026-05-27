@@ -160,6 +160,67 @@ def list_invoices(
     return invoices
 
 
+@router.post("/batch/verify")
+def batch_verify_invoices(
+    request: InvoiceBatchVerifyRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """批量验证发票"""
+    tasks = []
+    skipped = []
+
+    for invoice_id in request.invoice_ids:
+        query = db.query(Invoice).filter(Invoice.id == invoice_id)
+        if current_user.role != "admin":
+            query = query.filter(Invoice.upload_user_id == current_user.id)
+        invoice = query.first()
+        if not invoice:
+            skipped.append({"invoice_id": invoice_id, "reason": "not_found"})
+            continue
+
+        if invoice.ocr_status != "completed":
+            skipped.append({"invoice_id": invoice_id, "reason": "ocr_not_completed"})
+            continue
+
+        task_id = str(uuid.uuid4())
+        db.add(AsyncTask(
+            task_id=task_id,
+            task_type="invoice_verification",
+            status="pending",
+            resource_type="invoice",
+            resource_id=invoice_id,
+        ))
+        db.commit()
+        write_audit_log(
+            db,
+            action="invoice_verification_started",
+            resource_type="invoice",
+            resource_id=invoice_id,
+            user_id=current_user.id,
+            changes={
+                "invoice_number": invoice.invoice_number,
+                "task_id": task_id,
+                "source": "batch",
+            },
+        )
+        if settings.BACKGROUND_TASK_MODE == "inline":
+            invoice_verify_authenticity.apply(args=[invoice_id], task_id=task_id)
+        else:
+            invoice_verify_authenticity.apply_async(args=[invoice_id], task_id=task_id)
+        tasks.append({
+            "invoice_id": invoice_id,
+            "task_id": task_id
+        })
+
+    return {
+        "total": len(request.invoice_ids),
+        "started": len(tasks),
+        "skipped": skipped,
+        "tasks": tasks
+    }
+
+
 @router.post("/{invoice_id}/verify")
 def verify_invoice(
     invoice_id: int,
@@ -213,46 +274,6 @@ def verify_invoice(
         "task_id": task_id,
         "status": "verification_started",
         "message": "Invoice verification task started"
-    }
-
-
-@router.post("/batch/verify")
-def batch_verify_invoices(
-    request: InvoiceBatchVerifyRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """批量验证发票"""
-    tasks = []
-    
-    for invoice_id in request.invoice_ids:
-        query = db.query(Invoice).filter(Invoice.id == invoice_id)
-        if current_user.role != "admin":
-            query = query.filter(Invoice.upload_user_id == current_user.id)
-        invoice = query.first()
-        if invoice:
-            task_id = str(uuid.uuid4())
-            db.add(AsyncTask(
-                task_id=task_id,
-                task_type="invoice_verification",
-                status="pending",
-                resource_type="invoice",
-                resource_id=invoice_id,
-            ))
-            db.commit()
-            if settings.BACKGROUND_TASK_MODE == "inline":
-                invoice_verify_authenticity.apply(args=[invoice_id], task_id=task_id)
-            else:
-                invoice_verify_authenticity.apply_async(args=[invoice_id], task_id=task_id)
-            tasks.append({
-                "invoice_id": invoice_id,
-                "task_id": task_id
-            })
-    
-    return {
-        "total": len(request.invoice_ids),
-        "started": len(tasks),
-        "tasks": tasks
     }
 
 
