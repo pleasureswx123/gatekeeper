@@ -21,6 +21,7 @@ from app.invoices import router as invoices_router
 from app.contracts import router as contracts_router
 from app.reimbursements import router as reimbursements_router
 from app.tasks import router as tasks_router
+from app.audit_logs import router as audit_logs_router
 
 
 @asynccontextmanager
@@ -75,6 +76,7 @@ app.include_router(invoices_router)
 app.include_router(contracts_router)
 app.include_router(reimbursements_router)
 app.include_router(tasks_router)
+app.include_router(audit_logs_router)
 
 
 @app.get("/")
@@ -89,7 +91,8 @@ def root():
             "invoices": "/api/invoices",
             "contracts": "/api/contracts",
             "reimbursements": "/api/reimbursements",
-            "tasks": "/api/tasks"
+            "tasks": "/api/tasks",
+            "audit_logs": "/api/audit-logs"
         }
     }
 

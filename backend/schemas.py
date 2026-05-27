@@ -29,6 +29,32 @@ class UserResponse(UserBase):
         from_attributes = True
 
 
+# ==================== 审计日志 ====================
+
+class AuditUserResponse(BaseModel):
+    id: int
+    username: str
+    full_name: Optional[str]
+    role: str
+
+    class Config:
+        from_attributes = True
+
+
+class AuditLogResponse(BaseModel):
+    id: int
+    action: str
+    resource_type: Optional[str]
+    resource_id: Optional[int]
+    changes: Optional[Dict[str, Any]]
+    ip_address: Optional[str]
+    created_at: datetime
+    user: Optional[AuditUserResponse]
+
+    class Config:
+        from_attributes = True
+
+
 class UserLogin(BaseModel):
     username: str
     password: str

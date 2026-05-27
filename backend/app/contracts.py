@@ -11,6 +11,7 @@ from utils.file_handler import save_upload_file, get_file_extension, get_file_si
 from tasks.celery_tasks import contract_analyze_risks
 from config import settings
 from deps import get_current_user
+from utils.audit import write_audit_log
 import os
 import uuid
 
@@ -127,6 +128,19 @@ async def upload_contract(
         resource_id=contract.id,
     ))
     db.commit()
+
+    write_audit_log(
+        db,
+        action="contract_uploaded",
+        resource_type="contract",
+        resource_id=contract.id,
+        user_id=current_user.id,
+        changes={
+            "contract_number": contract.contract_number,
+            "contract_name": contract.contract_name,
+            "file_name": file.filename,
+        },
+    )
 
     if settings.BACKGROUND_TASK_MODE == "inline":
         contract_analyze_risks.apply(args=[contract.id, contract_text[:5000]], task_id=task_id)

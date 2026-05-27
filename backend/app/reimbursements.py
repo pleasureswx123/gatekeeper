@@ -8,6 +8,7 @@ from schemas import ReimbursementCreate, ReimbursementResponse
 from models import Invoice, Reimbursement, ReimbursementItem, User
 from services.business_logic import reimbursement_service
 from deps import get_current_user
+from utils.audit import write_audit_log
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -85,6 +86,17 @@ def create_reimbursement(
     db.commit()
 
     reimbursement_service.verify_reimbursement(db, db_reimbursement.id)
+    write_audit_log(
+        db,
+        action="reimbursement_submitted",
+        resource_type="reimbursement",
+        resource_id=db_reimbursement.id,
+        user_id=current_user.id,
+        changes={
+            "reimbursement_number": db_reimbursement.reimbursement_number,
+            "total_amount": str(db_reimbursement.total_amount),
+        },
+    )
     db.refresh(db_reimbursement)
     
     return db_reimbursement
@@ -149,6 +161,14 @@ def verify_reimbursement(
     
     # 执行验证
     result = reimbursement_service.verify_reimbursement(db, reimbursement_id)
+    write_audit_log(
+        db,
+        action="reimbursement_verified",
+        resource_type="reimbursement",
+        resource_id=reimbursement_id,
+        user_id=current_user.id,
+        changes=result,
+    )
     
     return {
         "reimbursement_id": reimbursement_id,
@@ -186,6 +206,17 @@ def approve_reimbursement(
     
     db.commit()
     db.refresh(reimbursement)
+    write_audit_log(
+        db,
+        action="reimbursement_approved",
+        resource_type="reimbursement",
+        resource_id=reimbursement_id,
+        user_id=current_user.id,
+        changes={
+            "reimbursement_number": reimbursement.reimbursement_number,
+            "approval_notes": approval_notes,
+        },
+    )
     
     return {
         "reimbursement_id": reimbursement_id,
@@ -224,6 +255,17 @@ def reject_reimbursement(
     
     db.commit()
     db.refresh(reimbursement)
+    write_audit_log(
+        db,
+        action="reimbursement_rejected",
+        resource_type="reimbursement",
+        resource_id=reimbursement_id,
+        user_id=current_user.id,
+        changes={
+            "reimbursement_number": reimbursement.reimbursement_number,
+            "rejection_reason": rejection_reason,
+        },
+    )
     
     return {
         "reimbursement_id": reimbursement_id,

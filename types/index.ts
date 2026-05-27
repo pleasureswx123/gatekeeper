@@ -14,6 +14,18 @@ export interface User {
   created_at: string;
 }
 
+// 审计日志
+export interface AuditLog {
+  id: number;
+  action: string;
+  resource_type?: 'contract' | 'invoice' | 'reimbursement' | string;
+  resource_id?: number;
+  changes?: Record<string, any>;
+  ip_address?: string;
+  created_at: string;
+  user?: Pick<User, 'id' | 'username' | 'full_name' | 'role'>;
+}
+
 // 合同
 export interface ContractRisk {
   id: number;

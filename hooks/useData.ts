@@ -3,7 +3,7 @@
  */
 import useSWR, { mutate as globalMutate } from 'swr';
 import { API_ENDPOINTS } from '@/lib/api/config';
-import { Contract, Invoice, Reimbursement } from '@/types';
+import { AuditLog, Contract, Invoice, Reimbursement } from '@/types';
 import { apiClient } from '@/lib/api/client';
 
 // 合同数据
@@ -33,6 +33,26 @@ export function useContract(contractId: number) {
 
   return {
     contract: data as Contract,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
+// 审计日志
+export function useAuditLogs(skip: number = 0, limit: number = 50, action?: string, resourceType?: string) {
+  let url = `${API_ENDPOINTS.AUDIT_LOGS_LIST}?skip=${skip}&limit=${limit}`;
+  if (action) url += `&action=${action}`;
+  if (resourceType) url += `&resource_type=${resourceType}`;
+
+  const { data, error, isLoading, mutate } = useSWR(
+    url,
+    async (url) => apiClient.get(url),
+    { revalidateOnFocus: false }
+  );
+
+  return {
+    auditLogs: data as AuditLog[],
     isLoading,
     error,
     mutate,

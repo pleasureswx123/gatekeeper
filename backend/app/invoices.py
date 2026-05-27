@@ -11,6 +11,7 @@ from utils.file_handler import save_upload_file, get_file_extension, get_file_si
 from tasks.celery_tasks import invoice_ocr_recognition, invoice_verify_authenticity
 from config import settings
 from deps import get_current_user
+from utils.audit import write_audit_log
 import os
 import uuid
 
@@ -65,6 +66,18 @@ async def upload_invoice(
         resource_id=invoice.id,
     ))
     db.commit()
+
+    write_audit_log(
+        db,
+        action="invoice_uploaded",
+        resource_type="invoice",
+        resource_id=invoice.id,
+        user_id=current_user.id,
+        changes={
+            "file_name": file.filename,
+            "invoice_type": invoice_type,
+        },
+    )
 
     if settings.BACKGROUND_TASK_MODE == "inline":
         invoice_ocr_recognition.apply(args=[invoice.id, file_path], task_id=task_id)
@@ -148,6 +161,18 @@ def verify_invoice(
         resource_id=invoice_id,
     ))
     db.commit()
+
+    write_audit_log(
+        db,
+        action="invoice_verification_started",
+        resource_type="invoice",
+        resource_id=invoice_id,
+        user_id=current_user.id,
+        changes={
+            "invoice_number": invoice.invoice_number,
+            "task_id": task_id,
+        },
+    )
 
     if settings.BACKGROUND_TASK_MODE == "inline":
         invoice_verify_authenticity.apply(args=[invoice_id], task_id=task_id)
