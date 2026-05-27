@@ -31,4 +31,9 @@ def get_system_info(
         "auto_create_tables": settings.AUTO_CREATE_TABLES,
         "demo_user_enabled": settings.DEMO_USER_ENABLED,
         "current_user": current_user.username,
+        "permission_matrix": {
+            "admin": ["查看全部业务数据", "上传合同和发票", "创建报销单", "审批报销单", "查看全部审计日志"],
+            "reviewer": ["查看全部报销单", "校验报销单", "审批报销单", "查看本人审计日志"],
+            "employee": ["查看本人业务数据", "上传合同和发票", "创建报销单", "校验本人报销单", "查看本人审计日志"],
+        },
     }

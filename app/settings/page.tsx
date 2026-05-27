@@ -187,6 +187,7 @@ export default function SettingsPage() {
                 </div>
                 <FormInput label="数据保留期（天）" type="number" value={String(settings.dataRetention)} onChange={(value) => setSettings({ ...settings, dataRetention: Number(value) || 90 })} />
                 <SystemInfo info={systemInfo} />
+                <PermissionMatrix matrix={systemInfo?.permission_matrix} />
                 <SaveButton isSaving={isSaving} onClick={handleSave} label="保存本地偏好" />
               </div>
             )}
@@ -261,6 +262,7 @@ function SystemInfo({ info }: { info?: Record<string, any> }) {
     ['数据库', info?.database || '-'],
     ['任务模式', info?.background_task_mode || '-'],
     ['发票验真模式', info?.invoice_verification_mode || '-'],
+    ['Ark Key', info?.ark_api_key_configured ? '已配置' : '未配置'],
     ['方舟模型', info?.ark_chat_model || '-'],
     ['方舟地址', info?.ark_base_url || '-'],
   ];
@@ -273,6 +275,30 @@ function SystemInfo({ info }: { info?: Record<string, any> }) {
           <div key={label} className="flex justify-between gap-4">
             <span className="text-muted-foreground">{label}</span>
             <span className="text-foreground text-right break-all">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PermissionMatrix({ matrix }: { matrix?: Record<string, string[]> }) {
+  if (!matrix) return null;
+
+  return (
+    <div className="p-4 bg-secondary/10 rounded-lg">
+      <h4 className="font-medium text-foreground mb-3">角色权限矩阵</h4>
+      <div className="space-y-3">
+        {Object.entries(matrix).map(([role, permissions]) => (
+          <div key={role} className="border border-border rounded-lg p-3">
+            <p className="font-medium text-foreground mb-2">{getRoleLabel(role as User['role'])}</p>
+            <div className="flex flex-wrap gap-2">
+              {permissions.map((permission) => (
+                <span key={permission} className="text-xs px-2 py-1 rounded bg-primary/10 text-primary">
+                  {permission}
+                </span>
+              ))}
+            </div>
           </div>
         ))}
       </div>
