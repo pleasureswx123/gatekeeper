@@ -79,6 +79,7 @@ export default function ActivityPage() {
               <option value="task_failed">任务失败</option>
               <option value="reimbursement_submitted">报销提交</option>
               <option value="reimbursement_verified">报销校验</option>
+              <option value="reimbursement_receipt_uploaded">收据上传</option>
               <option value="reimbursement_approved">报销批准</option>
               <option value="reimbursement_rejected">报销拒绝</option>
             </select>
@@ -212,6 +213,12 @@ function getActivityMeta(activity: AuditLog) {
       return {
         title: '报销单已校验',
         description: `报销单 ${resourceName} 校验状态：${changes.verification_status || '-'}`,
+        resourceName,
+      };
+    case 'reimbursement_receipt_uploaded':
+      return {
+        title: '报销收据已上传',
+        description: `报销单 ${resourceName} 的明细 #${changes.item_id || '-'} 已上传收据 ${changes.file_name || ''}`,
         resourceName,
       };
     case 'reimbursement_approved':

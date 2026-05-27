@@ -8,7 +8,8 @@ import { useParams } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/config';
-import { AlertCircle, ArrowLeft, CheckCircle2, Receipt, RefreshCw, XCircle } from 'lucide-react';
+import { downloadAuthenticatedFile, previewAuthenticatedFile } from '@/lib/api/download';
+import { AlertCircle, ArrowLeft, CheckCircle2, Download, Eye, Paperclip, Receipt, RefreshCw, Upload, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useCurrentUser } from '@/hooks/useData';
 
@@ -21,6 +22,7 @@ export default function ReimbursementDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
+  const [receiptUploadingItemId, setReceiptUploadingItemId] = useState<number | null>(null);
   const { currentUser } = useCurrentUser();
 
   const fetchReimbursement = useCallback(async () => {
@@ -49,6 +51,7 @@ export default function ReimbursementDetailPage() {
 
   const canReview = currentUser?.role === 'admin' || currentUser?.role === 'reviewer';
   const canVerify = canReview || reimbursement?.submitter_id === currentUser?.id;
+  const canUploadReceipt = reimbursement?.submitter_id === currentUser?.id && ['submitted', 'pending_review'].includes(reimbursement?.status);
 
   const runAction = async (action: 'verify' | 'approve' | 'reject') => {
     if (!id) return;
@@ -74,6 +77,43 @@ export default function ReimbursementDetailPage() {
       setError(err.response?.data?.detail || '操作失败，请重试');
     } finally {
       setIsActionLoading(false);
+    }
+  };
+
+  const uploadReceipt = async (itemId: number, file?: File) => {
+    if (!id || !file) return;
+    setReceiptUploadingItemId(itemId);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      await apiClient.uploadFile(API_ENDPOINTS.REIMBURSEMENTS_ITEM_RECEIPT(Number(id), itemId), formData);
+      await fetchReimbursement();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || '收据上传失败，请重试');
+    } finally {
+      setReceiptUploadingItemId(null);
+    }
+  };
+
+  const previewReceipt = async (itemId: number) => {
+    if (!id) return;
+    setError(null);
+    try {
+      await previewAuthenticatedFile(API_ENDPOINTS.REIMBURSEMENTS_ITEM_RECEIPT(Number(id), itemId), `receipt-${itemId}`);
+    } catch (err: any) {
+      setError(err.message || '收据预览失败');
+    }
+  };
+
+  const downloadReceipt = async (itemId: number) => {
+    if (!id) return;
+    setError(null);
+    try {
+      await downloadAuthenticatedFile(API_ENDPOINTS.REIMBURSEMENTS_ITEM_RECEIPT(Number(id), itemId), `receipt-${itemId}`);
+    } catch (err: any) {
+      setError(err.message || '收据下载失败');
     }
   };
 
@@ -209,14 +249,53 @@ export default function ReimbursementDetailPage() {
             <div className="space-y-3">
               {reimbursement.items && reimbursement.items.length > 0 ? (
                 reimbursement.items.map((item: any) => (
-                  <div key={item.id} className="flex items-center justify-between gap-4 p-4 bg-secondary/20 rounded-lg">
+                  <div key={item.id} className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 bg-secondary/20 rounded-lg">
                     <div className="min-w-0">
                       <p className="font-medium text-foreground truncate">{item.item_name || item.description}</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {item.category || '未分类'}{item.invoice_id ? ` · 发票 #${item.invoice_id}` : ' · 未关联发票'}
                       </p>
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <Paperclip className="w-3 h-3" />
+                        {item.receipt_file_path ? '已上传收据' : '未上传收据'}
+                      </p>
                     </div>
-                    <p className="font-semibold text-foreground shrink-0">¥{Number(item.amount || 0).toFixed(2)}</p>
+                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                      {item.receipt_file_path && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => previewReceipt(item.id)}
+                            className="flex items-center gap-1 px-3 py-2 text-sm bg-secondary/30 border border-border rounded-lg hover:bg-secondary/50"
+                          >
+                            <Eye className="w-4 h-4" />
+                            预览
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => downloadReceipt(item.id)}
+                            className="flex items-center gap-1 px-3 py-2 text-sm bg-secondary/30 border border-border rounded-lg hover:bg-secondary/50"
+                          >
+                            <Download className="w-4 h-4" />
+                            下载
+                          </button>
+                        </>
+                      )}
+                      {canUploadReceipt && (
+                        <label className="flex items-center gap-1 px-3 py-2 text-sm bg-primary/10 text-primary border border-primary/30 rounded-lg hover:bg-primary/20 cursor-pointer">
+                          <Upload className="w-4 h-4" />
+                          {receiptUploadingItemId === item.id ? '上传中...' : item.receipt_file_path ? '替换收据' : '上传收据'}
+                          <input
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg"
+                            className="hidden"
+                            disabled={receiptUploadingItemId === item.id}
+                            onChange={(event) => uploadReceipt(item.id, event.target.files?.[0])}
+                          />
+                        </label>
+                      )}
+                      <p className="font-semibold text-foreground shrink-0 min-w-20 text-right">¥{Number(item.amount || 0).toFixed(2)}</p>
+                    </div>
                   </div>
                 ))
               ) : (

@@ -39,6 +39,7 @@ export const API_ENDPOINTS = {
   REIMBURSEMENTS_VERIFY: (id: number) => `/reimbursements/${id}/verify`,
   REIMBURSEMENTS_APPROVE: (id: number) => `/reimbursements/${id}/approve`,
   REIMBURSEMENTS_REJECT: (id: number) => `/reimbursements/${id}/reject`,
+  REIMBURSEMENTS_ITEM_RECEIPT: (reimbursementId: number, itemId: number) => `/reimbursements/${reimbursementId}/items/${itemId}/receipt`,
 
   // 任务
   TASKS_STATUS: (taskId: string) => `/tasks/${taskId}`,

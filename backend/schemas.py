@@ -204,6 +204,7 @@ class ReimbursementItemResponse(BaseModel):
     category: Optional[str]
     amount: Decimal
     invoice_id: Optional[int]
+    receipt_file_path: Optional[str]
     description: Optional[str]
 
     class Config:

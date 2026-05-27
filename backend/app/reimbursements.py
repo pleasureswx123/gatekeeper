@@ -1,7 +1,8 @@
 """
 FastAPI 报销管理 API 路由
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, File, HTTPException, status, Query, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import ReimbursementCreate, ReimbursementResponse
@@ -9,10 +10,15 @@ from models import Invoice, Reimbursement, ReimbursementItem, User
 from services.business_logic import reimbursement_service
 from deps import get_current_user
 from utils.audit import write_audit_log
+from utils.file_handler import get_file_extension, get_file_size, save_upload_file
+from config import settings
 from datetime import date
 from decimal import Decimal, InvalidOperation
+import os
 
 router = APIRouter(prefix="/api/reimbursements", tags=["reimbursements"])
+
+RECEIPT_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
 
 
 def can_review_reimbursements(user: User) -> bool:
@@ -21,6 +27,10 @@ def can_review_reimbursements(user: User) -> bool:
 
 def can_access_reimbursement(user: User, reimbursement: Reimbursement) -> bool:
     return can_review_reimbursements(user) or reimbursement.submitter_id == user.id
+
+
+def can_modify_reimbursement(user: User, reimbursement: Reimbursement) -> bool:
+    return reimbursement.submitter_id == user.id and reimbursement.status in ("submitted", "pending_review")
 
 
 @router.post("/", response_model=ReimbursementResponse)
@@ -153,6 +163,118 @@ def list_reimbursements(
     
     reimbursements = query.order_by(Reimbursement.created_at.desc()).offset(skip).limit(limit).all()
     return reimbursements
+
+
+@router.post("/{reimbursement_id}/items/{item_id}/receipt")
+async def upload_reimbursement_item_receipt(
+    reimbursement_id: int,
+    item_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """上传报销明细收据/附件"""
+    reimbursement = db.query(Reimbursement).filter(Reimbursement.id == reimbursement_id).first()
+    if not reimbursement or not can_access_reimbursement(current_user, reimbursement):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reimbursement not found"
+        )
+
+    if not can_modify_reimbursement(current_user, reimbursement):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the submitter can upload receipts before final approval"
+        )
+
+    item = db.query(ReimbursementItem).filter(
+        ReimbursementItem.id == item_id,
+        ReimbursementItem.reimbursement_id == reimbursement_id,
+    ).first()
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reimbursement item not found"
+        )
+
+    if get_file_extension(file.filename) not in RECEIPT_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF, PNG, JPG and JPEG receipt files are supported"
+        )
+
+    file_path = save_upload_file(file, subfolder="reimbursement_receipts")
+    file_size = get_file_size(file_path)
+    if file_size > settings.MAX_FILE_SIZE:
+        os.remove(file_path)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File size exceeds 50MB limit"
+        )
+
+    if item.receipt_file_path and os.path.exists(item.receipt_file_path):
+        try:
+            os.remove(item.receipt_file_path)
+        except OSError:
+            pass
+
+    item.receipt_file_path = file_path
+    db.commit()
+
+    verification_result = reimbursement_service.verify_reimbursement(db, reimbursement_id)
+    write_audit_log(
+        db,
+        action="reimbursement_receipt_uploaded",
+        resource_type="reimbursement",
+        resource_id=reimbursement_id,
+        user_id=current_user.id,
+        changes={
+            "reimbursement_number": reimbursement.reimbursement_number,
+            "item_id": item_id,
+            "file_name": file.filename,
+            "verification_status": verification_result.get("verification_status"),
+        },
+    )
+
+    return {
+        "reimbursement_id": reimbursement_id,
+        "item_id": item_id,
+        "file_name": file.filename,
+        "file_size": file_size,
+        "verification_result": verification_result,
+    }
+
+
+@router.get("/{reimbursement_id}/items/{item_id}/receipt")
+def download_reimbursement_item_receipt(
+    reimbursement_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """下载报销明细收据/附件"""
+    reimbursement = db.query(Reimbursement).filter(Reimbursement.id == reimbursement_id).first()
+    if not reimbursement or not can_access_reimbursement(current_user, reimbursement):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reimbursement not found"
+        )
+
+    item = db.query(ReimbursementItem).filter(
+        ReimbursementItem.id == item_id,
+        ReimbursementItem.reimbursement_id == reimbursement_id,
+    ).first()
+    if not item or not item.receipt_file_path or not os.path.exists(item.receipt_file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Receipt file not found"
+        )
+
+    return FileResponse(
+        item.receipt_file_path,
+        filename=os.path.basename(item.receipt_file_path),
+        media_type="application/octet-stream",
+    )
 
 
 @router.post("/{reimbursement_id}/verify")

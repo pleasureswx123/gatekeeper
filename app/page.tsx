@@ -247,6 +247,8 @@ function getAuditMeta(log: AuditLog) {
       return { title: `报销单已批准：${resourceName}`, resourceLabel: '报销', status: '已批准' };
     case 'reimbursement_rejected':
       return { title: `报销单已拒绝：${resourceName}`, resourceLabel: '报销', status: '已拒绝' };
+    case 'reimbursement_receipt_uploaded':
+      return { title: `报销收据已上传：${resourceName}`, resourceLabel: '报销', status: '已上传' };
     default:
       return { title: log.action, resourceLabel: getResourceLabel(log.resource_type), status: '已记录' };
   }

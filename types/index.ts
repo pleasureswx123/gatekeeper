@@ -110,6 +110,7 @@ export interface ReimbursementItem {
   category: string;
   amount: number;
   invoice_id?: number;
+  receipt_file_path?: string;
   description?: string;
 }
 
