@@ -224,7 +224,7 @@ def list_contracts(
     if risk_level:
         query = query.filter(Contract.risk_level == risk_level)
     
-    contracts = query.offset(skip).limit(limit).all()
+    contracts = query.order_by(Contract.created_at.desc()).offset(skip).limit(limit).all()
     return contracts
 
 

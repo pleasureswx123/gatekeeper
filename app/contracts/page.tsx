@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Navigation } from '@/components/Navigation';
-import { FileText, Plus, Search, Filter, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { FileText, Plus, Search, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useContracts } from '@/hooks/useData';
 
@@ -16,6 +16,8 @@ export default function ContractsPage() {
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
+      case 'critical':
+        return 'text-red-300 bg-red-500/20';
       case 'high':
         return 'text-red-400 bg-red-500/10';
       case 'medium':
@@ -29,6 +31,8 @@ export default function ContractsPage() {
 
   const getRiskLabel = (risk: string) => {
     switch (risk) {
+      case 'critical':
+        return '严重风险';
       case 'high':
         return '高风险';
       case 'medium':
@@ -40,14 +44,32 @@ export default function ContractsPage() {
     }
   };
 
-  const getStatusIcon = (status: string, analysisStatus: string) => {
-    if (analysisStatus === 'processing') {
+  const getStatusIcon = (status: string) => {
+    if (status === 'analyzing' || status === 'pending') {
       return <Clock className="w-4 h-4 text-yellow-400" />;
+    }
+    if (status === 'error') {
+      return <AlertCircle className="w-4 h-4 text-red-400" />;
     }
     if (status === 'completed') {
       return <CheckCircle2 className="w-4 h-4 text-primary" />;
     }
     return <Clock className="w-4 h-4 text-muted-foreground" />;
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return '已完成';
+      case 'analyzing':
+        return '处理中';
+      case 'error':
+        return '分析失败';
+      case 'pending':
+        return '待处理';
+      default:
+        return status || '未知';
+    }
   };
 
   const filteredContracts = contracts.filter(contract => {
@@ -100,7 +122,9 @@ export default function ContractsPage() {
             >
               <option value="all">全部状态</option>
               <option value="pending">待处理</option>
+              <option value="analyzing">处理中</option>
               <option value="completed">已完成</option>
+              <option value="error">分析失败</option>
             </select>
           </div>
 
@@ -145,11 +169,8 @@ export default function ContractsPage() {
                           <div>
                             <p className="text-xs text-muted-foreground">分析状态</p>
                             <div className="flex items-center gap-2 mt-1">
-                              {getStatusIcon(contract.status, contract.status)}
-                              <span className="font-medium text-sm">
-                                {contract.status === 'completed' ? '已完成' :
-                                 contract.status === 'analyzing' ? '处理中' : '待处理'}
-                              </span>
+                              {getStatusIcon(contract.status)}
+                              <span className="font-medium text-sm">{getStatusLabel(contract.status)}</span>
                             </div>
                           </div>
                         </div>

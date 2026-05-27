@@ -146,7 +146,7 @@ def list_reimbursements(
     if status:
         query = query.filter(Reimbursement.status == status)
     
-    reimbursements = query.offset(skip).limit(limit).all()
+    reimbursements = query.order_by(Reimbursement.created_at.desc()).offset(skip).limit(limit).all()
     return reimbursements
 
 

@@ -156,7 +156,7 @@ def list_invoices(
     if status:
         query = query.filter(Invoice.status == status)
     
-    invoices = query.offset(skip).limit(limit).all()
+    invoices = query.order_by(Invoice.created_at.desc()).offset(skip).limit(limit).all()
     return invoices
 
 
