@@ -6,7 +6,7 @@
 
 ### 前置要求
 - ✅ Docker 和 Docker Compose
-- ✅ 火山引擎 API Key (可选, 如果没有会使用模拟数据)
+- ✅ 火山方舟 API Key（用于合同分析和发票 OCR）
 
 ### 启动步骤
 
@@ -18,7 +18,7 @@ cd /vercel/share/v0-project
 # 如果没有 .env 文件，从模板创建
 cp backend/.env.example backend/.env
 
-# 编辑 .env 文件，配置你的火山引擎 API Key (可选)
+# 编辑 .env 文件，配置 ARK_API_KEY、SECRET_KEY、ALLOWED_ORIGINS 等
 # nano backend/.env
 ```
 
@@ -26,28 +26,18 @@ cp backend/.env.example backend/.env
 
 ```bash
 # 启动 Docker Compose (后台运行)
-docker-compose up -d
+docker compose up -d
 
 # 等待所有服务启动 (大约 30 秒)
 # 查看日志确认启动成功
-docker-compose logs -f
+docker compose logs -f
 
 # 按 Ctrl+C 退出日志查看
 ```
 
-#### Step 3: 初始化数据库
+#### Step 3: 数据库初始化
 
-```bash
-# 进入后端容器
-docker-compose exec backend bash
-
-# 初始化数据库 Schema
-psql -h postgres -U gatekeeper -d gatekeeper_db -f migrations/001_initial_schema.sql
-
-# 如果提示输入密码，输入: gatekeeper123
-# 成功后退出容器
-exit
-```
+开发环境默认 `AUTO_CREATE_TABLES=True`，后端启动时会自动建表并创建演示账号。
 
 #### Step 4: 启动前端开发服务器
 
@@ -57,7 +47,7 @@ exit
 cd /vercel/share/v0-project
 
 # 如果还未安装前端依赖
-pnpm install
+pnpm install --registry=https://registry.npmmirror.com
 
 # 启动 Next.js 开发服务器
 pnpm dev
@@ -96,9 +86,9 @@ pnpm dev
 ### 3. 测试报销单
 
 1. 在主页点击"创建报销单"
-2. 添加报销项目 (可以关联发票)
-3. 验证报销单
-4. 查看验证结果
+2. 添加报销项目（可以关联 OCR 已完成的发票）
+3. 在报销详情页上传收据附件
+4. 验证报销单并查看验证结果
 
 ## 常用命令
 
@@ -106,48 +96,48 @@ pnpm dev
 
 ```bash
 # 启动所有服务
-docker-compose up -d
+docker compose up -d
 
 # 停止所有服务
-docker-compose down
+docker compose down
 
 # 查看服务日志
-docker-compose logs -f [service-name]
+docker compose logs -f [service-name]
 
 # 重启某个服务
-docker-compose restart [service-name]
+docker compose restart [service-name]
 
 # 进入容器
-docker-compose exec [service-name] bash
+docker compose exec [service-name] bash
 
 # 查看运行的容器
-docker-compose ps
+docker compose ps
 ```
 
 ### 数据库操作
 
 ```bash
 # 连接数据库
-docker-compose exec postgres psql -U gatekeeper -d gatekeeper_db
+docker compose exec postgres psql -U gatekeeper -d gatekeeper_db
 
 # 导出数据库
-docker-compose exec postgres pg_dump -U gatekeeper -d gatekeeper_db > backup.sql
+docker compose exec postgres pg_dump -U gatekeeper -d gatekeeper_db > backup.sql
 
 # 导入数据库
-docker-compose exec -T postgres psql -U gatekeeper -d gatekeeper_db < backup.sql
+docker compose exec -T postgres psql -U gatekeeper -d gatekeeper_db < backup.sql
 ```
 
 ### Celery 任务队列
 
 ```bash
 # 查看 Celery Worker 日志
-docker-compose logs -f celery_worker
+docker compose logs -f celery_worker
 
 # 查看待处理任务
 # 访问 http://localhost:5555 (Flower 界面)
 
 # 清空 Redis 缓存
-docker-compose exec redis redis-cli FLUSHALL
+docker compose exec redis redis-cli FLUSHALL
 ```
 
 ## 停止和清理
@@ -156,10 +146,10 @@ docker-compose exec redis redis-cli FLUSHALL
 
 ```bash
 # 停止所有服务但保留数据
-docker-compose down
+docker compose down
 
 # 完全清理 (删除所有数据和卷)
-docker-compose down -v
+docker compose down -v
 ```
 
 ## 本地开发 (不使用 Docker)
@@ -206,7 +196,7 @@ celery -A celery_app flower --port=5555
 
 ```bash
 # 安装依赖
-pnpm install
+pnpm install --registry=https://registry.npmmirror.com
 
 # 启动开发服务器
 pnpm dev

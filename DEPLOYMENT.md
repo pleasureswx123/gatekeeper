@@ -46,10 +46,13 @@ SECRET_KEY=your-secret-key-change-this-in-production
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-# 火山引擎配置
-VOLCANO_API_KEY=your-volcano-api-key
-VOLCANO_SECRET_KEY=your-volcano-secret-key
-VOLCANO_REGION=cn-beijing
+# 火山方舟配置：合同分析 + 发票 OCR
+ARK_API_KEY=your-ark-api-key
+ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+ARK_CHAT_MODEL=doubao-seed-2-0-lite-260428
+
+# 发票验真配置：当前可用 mock，真实验真后续接入专门服务
+INVOICE_VERIFICATION_MODE=mock
 
 # Redis
 REDIS_URL=redis://localhost:6379/0
@@ -64,6 +67,9 @@ MAX_FILE_SIZE=52428800  # 50MB
 
 # CORS
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# 任务执行模式：本地开发可用 inline；生产建议使用 celery
+BACKGROUND_TASK_MODE=inline
 
 # 日志
 LOG_LEVEL=INFO
@@ -130,8 +136,12 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
       SECRET_KEY: ${SECRET_KEY}
-      VOLCANO_API_KEY: ${VOLCANO_API_KEY}
-      VOLCANO_SECRET_KEY: ${VOLCANO_SECRET_KEY}
+      ARK_API_KEY: ${ARK_API_KEY}
+      ARK_BASE_URL: https://ark.cn-beijing.volces.com/api/v3
+      ARK_CHAT_MODEL: doubao-seed-2-0-lite-260428
+      INVOICE_VERIFICATION_MODE: mock
+      ALLOWED_ORIGINS: https://your-domain.com
+      BACKGROUND_TASK_MODE: celery
     depends_on:
       - postgres
       - redis
