@@ -214,10 +214,16 @@ function getAuditMeta(log: AuditLog) {
   switch (log.action) {
     case 'contract_uploaded':
       return { title: `合同已上传：${resourceName}`, resourceLabel: '合同', status: '已提交' };
+    case 'contract_upload_failed':
+      return { title: `合同上传失败：${resourceName}`, resourceLabel: '合同', status: '失败' };
     case 'invoice_uploaded':
       return { title: `发票已上传：${resourceName}`, resourceLabel: '发票', status: '识别中' };
     case 'invoice_verification_started':
       return { title: `发票验真已启动：${resourceName}`, resourceLabel: '发票', status: '验真中' };
+    case 'task_completed':
+      return { title: `后台任务已完成：${getTaskName(changes.task_type)}`, resourceLabel: getResourceLabel(log.resource_type), status: '已完成' };
+    case 'task_failed':
+      return { title: `后台任务失败：${getTaskName(changes.task_type)}`, resourceLabel: getResourceLabel(log.resource_type), status: '失败' };
     case 'reimbursement_submitted':
       return { title: `报销单已提交：${resourceName}`, resourceLabel: '报销', status: '待审批' };
     case 'reimbursement_approved':
@@ -243,8 +249,16 @@ function getResourceLabel(resourceType?: string) {
   return '系统';
 }
 
+function getTaskName(taskType?: string) {
+  if (taskType === 'contract_analysis') return '合同分析';
+  if (taskType === 'invoice_ocr') return '发票 OCR';
+  if (taskType === 'invoice_verification') return '发票验真';
+  return taskType || '后台任务';
+}
+
 function getStatusIcon(action: string) {
   if (action.includes('approved') || action.includes('verified')) return <CheckCircle2 className="w-4 h-4 text-primary" />;
-  if (action.includes('rejected')) return <AlertCircle className="w-4 h-4 text-red-400" />;
+  if (action.includes('failed') || action.includes('rejected')) return <AlertCircle className="w-4 h-4 text-red-400" />;
+  if (action.includes('completed')) return <CheckCircle2 className="w-4 h-4 text-primary" />;
   return <Clock className="w-4 h-4 text-yellow-400" />;
 }

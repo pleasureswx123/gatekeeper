@@ -70,8 +70,11 @@ export default function ActivityPage() {
             >
               <option value="all">全部事件</option>
               <option value="contract_uploaded">合同上传</option>
+              <option value="contract_upload_failed">合同上传失败</option>
               <option value="invoice_uploaded">发票上传</option>
               <option value="invoice_verification_started">发票验真</option>
+              <option value="task_completed">任务完成</option>
+              <option value="task_failed">任务失败</option>
               <option value="reimbursement_submitted">报销提交</option>
               <option value="reimbursement_verified">报销校验</option>
               <option value="reimbursement_approved">报销批准</option>
@@ -156,6 +159,12 @@ function getActivityMeta(activity: AuditLog) {
         description: `合同 ${changes.contract_name || resourceName} 已进入分析流程`,
         resourceName,
       };
+    case 'contract_upload_failed':
+      return {
+        title: '合同上传失败',
+        description: changes.error_message || `合同 ${changes.contract_name || resourceName} 未能进入分析流程`,
+        resourceName,
+      };
     case 'invoice_uploaded':
       return {
         title: '发票已上传',
@@ -166,6 +175,18 @@ function getActivityMeta(activity: AuditLog) {
       return {
         title: '发票验真已启动',
         description: `发票 ${resourceName} 已启动验真任务`,
+        resourceName,
+      };
+    case 'task_completed':
+      return {
+        title: '后台任务已完成',
+        description: getTaskDescription(changes, 'completed'),
+        resourceName,
+      };
+    case 'task_failed':
+      return {
+        title: '后台任务失败',
+        description: getTaskDescription(changes, 'failed'),
         resourceName,
       };
     case 'reimbursement_submitted':
@@ -202,10 +223,29 @@ function getActivityMeta(activity: AuditLog) {
 }
 
 function getSeverity(action: string) {
-  if (action.includes('rejected')) return 'error';
-  if (action.includes('verified') || action.includes('approved')) return 'success';
+  if (action.includes('failed') || action.includes('rejected')) return 'error';
+  if (action.includes('completed') || action.includes('verified') || action.includes('approved')) return 'success';
   if (action.includes('started') || action.includes('uploaded') || action.includes('submitted')) return 'info';
   return 'warning';
+}
+
+function getTaskDescription(changes: Record<string, any>, status: 'completed' | 'failed') {
+  const taskTypeMap: Record<string, string> = {
+    contract_analysis: '合同分析',
+    invoice_ocr: '发票 OCR 识别',
+    invoice_verification: '发票验真',
+  };
+  const taskName = taskTypeMap[changes.task_type] || changes.task_type || '后台任务';
+  if (status === 'failed') {
+    return `${taskName}失败：${changes.error_message || '未知错误'}`;
+  }
+  if (changes.risk_level) {
+    return `${taskName}完成，风险等级 ${changes.risk_level}，评分 ${changes.risk_score ?? '-'}`;
+  }
+  if (typeof changes.is_valid !== 'undefined') {
+    return `${taskName}完成，验真结果：${changes.is_valid ? '通过' : '未通过'}，重复：${changes.is_duplicate ? '是' : '否'}`;
+  }
+  return `${taskName}已完成`;
 }
 
 function getActivityIcon(severity: string) {
