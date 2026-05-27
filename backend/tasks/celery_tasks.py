@@ -320,6 +320,12 @@ def invoice_verify_authenticity(self, invoice_id: int):
         db.commit()
         
         is_duplicate = invoice_service.check_duplicate(db, invoice_id)
+        invoice_service.update_invoice_status(
+            db,
+            invoice_id,
+            "verified" if is_valid and not is_duplicate else "invalid",
+            "duplicate" if is_duplicate else ("valid" if is_valid else "invalid")
+        )
         
         # 最终状态
         progress = TaskProgress(

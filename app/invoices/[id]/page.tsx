@@ -3,18 +3,54 @@
  */
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
-import { Receipt, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
+import { API_ENDPOINTS } from '@/lib/api/config';
+import { AlertCircle, CheckCircle2, Clock, Receipt, RefreshCw, XCircle } from 'lucide-react';
 import { useInvoice } from '@/hooks/useData';
-import { useResourceTasks } from '@/hooks/useTaskProgress';
+import { useResourceTasks, useTaskMonitor } from '@/hooks/useTaskProgress';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
   const invoiceId = Number(params.id);
-  const { invoice, isLoading, error } = useInvoice(invoiceId);
-  const { tasks } = useResourceTasks('invoice', invoiceId);
+  const { invoice, isLoading, error, mutate } = useInvoice(invoiceId);
+  const { tasks, refresh: refreshTasks } = useResourceTasks('invoice', invoiceId);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const { progress: activeProgress, result: activeResult } = useTaskMonitor(activeTaskId);
+
   const latestTask = tasks[0];
+  const displayTask = activeProgress || latestTask;
+
+  const taskPercent = useMemo(() => {
+    if (!displayTask) return 0;
+    return Number(displayTask.progress_percentage ?? displayTask.progress ?? 0);
+  }, [displayTask]);
+
+  useEffect(() => {
+    if (!activeProgress || !['completed', 'failed'].includes(activeProgress.status)) return;
+    setIsVerifying(false);
+    mutate();
+    refreshTasks();
+  }, [activeProgress?.status, activeProgress, mutate, refreshTasks]);
+
+  const handleVerify = async () => {
+    if (!invoice) return;
+    setIsVerifying(true);
+    setActionError(null);
+
+    try {
+      const response = (await apiClient.post(API_ENDPOINTS.INVOICES_VERIFY(invoice.id))) as any;
+      setActiveTaskId(response.task_id);
+      await refreshTasks();
+    } catch (err: any) {
+      setActionError(err.response?.data?.detail || '发票验真启动失败');
+      setIsVerifying(false);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -23,12 +59,24 @@ export default function InvoiceDetailPage() {
       <main className="flex-1 overflow-auto">
         <div className="bg-card border-b border-border sticky top-0 z-10">
           <div className="px-8 py-6">
-            <div className="flex items-center gap-3">
-              <Receipt className="w-6 h-6 text-primary" />
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">{invoice?.invoice_number || '发票详情'}</h2>
-                <p className="text-sm text-muted-foreground">{invoice?.issuer_name || `#${invoiceId}`}</p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <Receipt className="w-6 h-6 text-primary shrink-0" />
+                <div className="min-w-0">
+                  <h2 className="text-2xl font-bold text-foreground truncate">{invoice?.invoice_number || '发票详情'}</h2>
+                  <p className="text-sm text-muted-foreground">{invoice?.issuer_name || `#${invoiceId}`}</p>
+                </div>
               </div>
+              {invoice && (
+                <button
+                  onClick={handleVerify}
+                  disabled={isVerifying || invoice.ocr_status !== 'completed'}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isVerifying ? 'animate-spin' : ''}`} />
+                  重新验真
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -40,6 +88,12 @@ export default function InvoiceDetailPage() {
             <div className="text-red-400">发票加载失败，请确认后端服务已启动。</div>
           ) : (
             <>
+              {actionError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400">
+                  {actionError}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Info label="发票金额" value={`¥${Number(invoice.invoice_amount || 0).toLocaleString()}`} />
                 <Info label="税额" value={`¥${Number(invoice.tax_amount || 0).toLocaleString()}`} />
@@ -47,21 +101,28 @@ export default function InvoiceDetailPage() {
                 <StatusCard invoice={invoice} />
               </div>
 
-              {latestTask && (
-                <div className="bg-card border border-border rounded-lg p-5">
+              {displayTask && (
+                <div className={`bg-card border rounded-lg p-5 ${displayTask.status === 'failed' ? 'border-red-500/40' : 'border-border'}`}>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold text-foreground">最近任务</h3>
-                    <span className="text-sm text-muted-foreground">{latestTask.status}</span>
+                    <span className={`text-sm ${displayTask.status === 'failed' ? 'text-red-400' : 'text-muted-foreground'}`}>
+                      {getTaskStatusLabel(displayTask.status)}
+                    </span>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-2">
-                    <div className="bg-primary h-2 rounded-full" style={{ width: `${latestTask.progress || 0}%` }} />
+                    <div className={`h-2 rounded-full ${displayTask.status === 'failed' ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${taskPercent}%` }} />
                   </div>
+                  <p className="text-sm text-muted-foreground mt-3">
+                    {displayTask.status_message || displayTask.current_step || activeResult?.error_message || '暂无任务详情'}
+                  </p>
                 </div>
               )}
 
               <div className="bg-card border border-border rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">OCR 识别结果</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Info label="OCR 状态" value={getOcrStatusLabel(invoice.ocr_status)} />
+                  <Info label="置信度" value={`${Math.round(Number(invoice.ocr_confidence || 0) * 100)}%`} />
                   <Info label="发票代码" value={invoice.invoice_code || '-'} />
                   <Info label="开票日期" value={invoice.invoice_date || '-'} />
                   <Info label="销售方" value={invoice.issuer_name || '-'} />
@@ -73,12 +134,29 @@ export default function InvoiceDetailPage() {
 
               <div className="bg-card border border-border rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">验证结果</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Verification label="真伪验证" passed={invoice.authenticity_verified} text={invoice.authenticity_verified ? 'Mock 通过' : '待验证'} />
+                  <Verification label="验真方式" passed={invoice.authenticity_verified} text={invoice.authenticity_verified ? 'mock' : '未执行'} />
                   <Verification label="作废状态" passed={!invoice.is_voided} text={invoice.is_voided ? '已作废' : '未作废'} />
                   <Verification label="重复检测" passed={!invoice.is_duplicate} text={invoice.is_duplicate ? '重复发票' : '未重复'} />
                 </div>
               </div>
+
+              {invoice.items?.length > 0 && (
+                <div className="bg-card border border-border rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">发票明细</h3>
+                  <div className="space-y-3">
+                    {invoice.items.map((item) => (
+                      <div key={item.id} className="grid grid-cols-1 md:grid-cols-[1fr_120px_120px_120px] gap-3 bg-secondary/20 rounded-lg p-4">
+                        <Info label="项目名称" value={item.item_name || '-'} />
+                        <Info label="数量" value={String(item.item_quantity || '-')} />
+                        <Info label="单价" value={`¥${Number(item.item_price || 0).toFixed(2)}`} />
+                        <Info label="金额" value={`¥${Number(item.item_amount || 0).toFixed(2)}`} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="bg-card border border-border rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">模型返回原文</h3>
@@ -98,19 +176,20 @@ function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-secondary/20 rounded-lg p-4">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-medium text-foreground mt-1">{value}</p>
+      <p className="font-medium text-foreground mt-1 break-words">{value}</p>
     </div>
   );
 }
 
 function StatusCard({ invoice }: { invoice: any }) {
   const completed = invoice.status === 'verified';
+  const failed = invoice.status === 'invalid' || invoice.status === 'error';
   return (
     <div className="bg-card border border-border rounded-lg p-4">
       <p className="text-sm text-muted-foreground">验证状态</p>
       <div className="flex items-center gap-2 mt-2">
-        {completed ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : <Clock className="w-5 h-5 text-yellow-400" />}
-        <p className="font-medium text-foreground">{completed ? '已验证' : invoice.status}</p>
+        {completed ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : failed ? <XCircle className="w-5 h-5 text-red-400" /> : <Clock className="w-5 h-5 text-yellow-400" />}
+        <p className="font-medium text-foreground">{getInvoiceStatusLabel(invoice.status)}</p>
       </div>
     </div>
   );
@@ -120,7 +199,7 @@ function Verification({ label, passed, text }: { label: string; passed: boolean;
   return (
     <div className="border border-border rounded-lg p-4">
       <div className="flex items-center gap-2">
-        {passed ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : <AlertCircle className="w-5 h-5 text-yellow-400" />}
+        {passed ? <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" /> : <AlertCircle className="w-5 h-5 text-yellow-400 shrink-0" />}
         <div>
           <p className="font-medium text-foreground">{label}</p>
           <p className="text-sm text-muted-foreground">{text}</p>
@@ -128,4 +207,45 @@ function Verification({ label, passed, text }: { label: string; passed: boolean;
       </div>
     </div>
   );
+}
+
+function getInvoiceStatusLabel(status: string) {
+  switch (status) {
+    case 'verified':
+      return '已验证';
+    case 'invalid':
+      return '异常';
+    case 'error':
+      return '识别失败';
+    case 'processing':
+      return '处理中';
+    default:
+      return '待处理';
+  }
+}
+
+function getOcrStatusLabel(status: string) {
+  switch (status) {
+    case 'completed':
+      return '已完成';
+    case 'error':
+      return '识别失败';
+    case 'processing':
+      return '处理中';
+    default:
+      return '待识别';
+  }
+}
+
+function getTaskStatusLabel(status: string) {
+  switch (status) {
+    case 'completed':
+      return '已完成';
+    case 'failed':
+      return '失败';
+    case 'processing':
+      return '处理中';
+    default:
+      return '待处理';
+  }
 }

@@ -102,6 +102,9 @@ def get_resource_tasks(
             "task_type": task.task_type,
             "status": task.status,
             "progress": progress.progress_percentage if progress else 0,
+            "current_step": progress.current_step if progress else None,
+            "status_message": progress.status_message if progress else None,
+            "error_message": task.error_message,
             "created_at": task.created_at,
             "completed_at": task.completed_at
         })
