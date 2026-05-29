@@ -52,7 +52,7 @@ class Settings:
     ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"}
     
     # 应用配置
-    API_TITLE = "守门人财法风控系统"
+    API_TITLE = "明鉴财法风控系统"
     API_VERSION = "1.0.0"
     DEBUG = os.getenv("DEBUG", "False") == "True"
     ALLOWED_ORIGINS = _parse_csv_env(
@@ -67,3 +67,4 @@ class Settings:
     BACKGROUND_TASK_MODE = os.getenv("BACKGROUND_TASK_MODE", "inline")
 
 settings = Settings()
+

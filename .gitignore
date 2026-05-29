@@ -10,11 +10,15 @@ __v0_jsx-dev-runtime.ts
 .env
 .env*.local
 backend/.env
+deploy.env
+deploy.env.*
+!deploy.env.example
 
 # Common ignores
 .idea/
 node_modules
 .next/
+*.tsbuildinfo
 .DS_Store
 __pycache__/
 *.py[cod]

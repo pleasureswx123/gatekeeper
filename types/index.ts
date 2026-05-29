@@ -87,7 +87,7 @@ export interface Invoice {
   tax_amount?: number;
   total_amount?: number;
   invoice_date?: string;
-  status: 'processing' | 'verified' | 'invalid' | 'voided' | 'error';
+  status: 'pending' | 'processing' | 'verified' | 'invalid' | 'voided' | 'error';
   ocr_status: 'pending' | 'processing' | 'completed' | 'error';
   validation_status: 'pending' | 'valid' | 'invalid' | 'duplicate';
   is_duplicate: boolean;

@@ -1,4 +1,5 @@
-FROM python:3.10-slim
+ARG PYTHON_IMAGE=docker.m.daocloud.io/library/python:3.10-slim
+FROM ${PYTHON_IMAGE}
 
 ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ \
     PIP_TRUSTED_HOST=mirrors.aliyun.com

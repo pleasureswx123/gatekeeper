@@ -28,7 +28,7 @@ from app.system import router as system_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    logger.info("Starting Gatekeeper Financial Compliance System")
+    logger.info("Starting Mingjian Financial Compliance System")
     if settings.AUTO_CREATE_TABLES:
         Base.metadata.create_all(bind=engine)
 
@@ -51,14 +51,14 @@ async def lifespan(app: FastAPI):
         finally:
             db.close()
     yield
-    logger.info("Shutting down Gatekeeper")
+    logger.info("Shutting down Mingjian")
 
 
 # 创建 FastAPI 应用
 app = FastAPI(
     title=settings.API_TITLE,
     version=settings.API_VERSION,
-    description="守门人财法风控系统 API",
+    description="明鉴财法风控系统 API",
     lifespan=lifespan
 )
 
@@ -114,3 +114,4 @@ if __name__ == "__main__":
         port=8000,
         reload=settings.DEBUG
     )
+

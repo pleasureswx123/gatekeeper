@@ -212,17 +212,9 @@ def invoice_ocr_recognition(self, invoice_id: int, image_path: str):
         logger.info(f"Starting OCR for invoice {invoice_id}")
         invoice = invoice_service.perform_ocr(db, invoice_id, image_path)
 
-        is_valid = False
-        is_duplicate = False
         if invoice.ocr_status == "completed":
-            is_valid = invoice_service.verify_authenticity(db, invoice_id)
-            is_duplicate = invoice_service.check_duplicate(db, invoice_id)
-            invoice_service.update_invoice_status(
-                db,
-                invoice_id,
-                "verified" if is_valid and not is_duplicate else "invalid",
-                "duplicate" if is_duplicate else ("valid" if is_valid else "invalid")
-            )
+            # 发票上传后只做大模型 OCR 识别；真伪验证后续接腾讯服务时再启用。
+            invoice_service.update_invoice_status(db, invoice_id, "pending", "pending")
         else:
             progress = TaskProgress(
                 task_id=task.id,
@@ -266,21 +258,20 @@ def invoice_ocr_recognition(self, invoice_id: int, image_path: str):
         task.result = {
             "invoice_id": invoice_id,
             "status": "success",
-            "is_valid": is_valid,
-            "is_duplicate": is_duplicate
+            "ocr_status": invoice.ocr_status,
+            "verification_status": "not_started",
         }
         db.commit()
         _write_task_audit_log(
             db,
             task,
             "task_completed",
-            {
-                "invoice_id": invoice_id,
-                "is_valid": is_valid,
-                "is_duplicate": is_duplicate,
-                "invoice_status": invoice.status,
-            },
-        )
+                {
+                    "invoice_id": invoice_id,
+                    "invoice_status": invoice.status,
+                    "verification_status": "not_started",
+                },
+            )
         
         return {"status": "success", "invoice_id": invoice_id}
     
@@ -517,11 +508,18 @@ def contract_analyze_risks(self, contract_id: int, contract_text: str):
         )
         
         llm_result = volcano_client.analyze_contract_with_llm(contract_text)
+        llm_error = None
         if llm_result.get("status") == "error":
-            contract.status = "error"
-            contract.analysis_error = llm_result.get("error_message")
-            db.commit()
-            raise ValueError(contract.analysis_error or "Contract analysis failed")
+            llm_error = llm_result.get("error_message") or "Contract semantic analysis failed"
+            logger.warning("Contract LLM analysis failed, using rule engine result: %s", llm_error)
+            llm_result = {
+                "status": "error",
+                "error_message": llm_error,
+                "risks": [],
+                "risk_score": 0,
+                "risk_level": "unknown",
+                "analysis_confidence": 0,
+            }
         
         # 合并结果
         rule_risks = rule_engine_result.get("violations", [])
@@ -535,6 +533,7 @@ def contract_analyze_risks(self, contract_id: int, contract_text: str):
         # 更新合同记录
         contract.status = "completed"
         contract.analysis_completed_at = datetime.utcnow()
+        contract.analysis_error = None
         contract.rule_engine_result = rule_engine_result
         contract.llm_analysis_result = llm_result
         contract.risk_score = risk_score
@@ -577,7 +576,8 @@ def contract_analyze_risks(self, contract_id: int, contract_text: str):
         task.result = {
             "contract_id": contract_id,
             "risk_score": risk_score,
-            "risk_level": risk_level
+            "risk_level": risk_level,
+            "llm_error": llm_error,
         }
         db.commit()
         _write_task_audit_log(

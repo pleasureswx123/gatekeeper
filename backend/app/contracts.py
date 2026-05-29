@@ -1,14 +1,14 @@
 """
 FastAPI 合同管理 API 路由
 """
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Query
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import ContractResponse, ContractUpload
 from models import Contract, AsyncTask, User
 from services.business_logic import invoice_service
 from utils.file_handler import save_upload_file, get_file_extension, get_file_size
+from utils.file_response import build_file_response
 from tasks.celery_tasks import contract_analyze_risks
 from config import settings
 from deps import get_current_user
@@ -66,9 +66,9 @@ def extract_contract_text(file_path: str) -> str:
 @router.post("/upload")
 async def upload_contract(
     file: UploadFile = File(...),
-    contract_name: str = None,
-    supplier_name: str = None,
-    amount: float = None,
+    contract_name: str = Form(None),
+    supplier_name: str = Form(None),
+    amount: float = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -189,13 +189,62 @@ def get_contract(
     return contract
 
 
-@router.get("/{contract_id}/file")
-def download_contract_file(
+@router.delete("/{contract_id}")
+def delete_contract(
     contract_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """下载合同原始文件"""
+    """删除合同"""
+    contract = db.query(Contract).filter(Contract.id == contract_id).first()
+
+    if not contract or (current_user.role != "admin" and contract.upload_user_id != current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contract not found"
+        )
+
+    file_path = contract.file_path
+    write_audit_log(
+        db,
+        action="contract_deleted",
+        resource_type="contract",
+        resource_id=contract.id,
+        user_id=current_user.id,
+        changes={
+            "contract_number": contract.contract_number,
+            "contract_name": contract.contract_name,
+            "file_name": contract.file_name,
+        },
+    )
+
+    tasks = db.query(AsyncTask).filter(
+        AsyncTask.resource_type == "contract",
+        AsyncTask.resource_id == contract_id,
+    ).all()
+    for task in tasks:
+        db.delete(task)
+
+    db.delete(contract)
+    db.commit()
+
+    if file_path and os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+
+    return {"contract_id": contract_id, "message": "Contract deleted successfully"}
+
+
+@router.get("/{contract_id}/file")
+def download_contract_file(
+    contract_id: int,
+    preview: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """下载或预览合同原始文件"""
     contract = db.query(Contract).filter(Contract.id == contract_id).first()
 
     if not contract or (current_user.role != "admin" and contract.upload_user_id != current_user.id):
@@ -210,10 +259,10 @@ def download_contract_file(
             detail="Contract file not found"
         )
 
-    return FileResponse(
+    return build_file_response(
         contract.file_path,
         filename=contract.file_name or f"contract-{contract_id}{get_file_extension(contract.file_path)}",
-        media_type="application/octet-stream",
+        preview=preview,
     )
 
 

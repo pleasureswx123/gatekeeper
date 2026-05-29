@@ -4,6 +4,10 @@
 node_modules
 uploads
 backend/.env
+.env
+.env.local
+deploy.env
+deploy.env.*
 backend/__pycache__
 backend/**/__pycache__
 *.pyc

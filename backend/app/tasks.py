@@ -49,8 +49,8 @@ def get_task_status(
         "task_id": task_id,
         "status": task.status,
         "progress_percentage": progress.progress_percentage if progress else 0,
-        "current_step": progress.current_step if progress else None,
-        "status_message": progress.status_message if progress else None
+        "current_step": progress.current_step if progress and progress.current_step else _default_step(task.status),
+        "status_message": progress.status_message if progress else _default_message(task.status),
     }
 
 
@@ -102,11 +102,35 @@ def get_resource_tasks(
             "task_type": task.task_type,
             "status": task.status,
             "progress": progress.progress_percentage if progress else 0,
-            "current_step": progress.current_step if progress else None,
-            "status_message": progress.status_message if progress else None,
+            "current_step": progress.current_step if progress and progress.current_step else _default_step(task.status),
+            "status_message": progress.status_message if progress else _default_message(task.status),
             "error_message": task.error_message,
             "created_at": task.created_at,
             "completed_at": task.completed_at
         })
     
     return result
+
+
+def _default_step(status: str) -> str:
+    if status == "pending":
+        return "等待处理"
+    if status == "processing":
+        return "处理中"
+    if status == "completed":
+        return "处理完成"
+    if status == "failed":
+        return "处理失败"
+    return "任务状态更新"
+
+
+def _default_message(status: str) -> str:
+    if status == "pending":
+        return "任务已创建，正在等待后台处理"
+    if status == "processing":
+        return "后台任务正在执行"
+    if status == "completed":
+        return "任务已完成"
+    if status == "failed":
+        return "任务失败，请查看错误详情"
+    return None

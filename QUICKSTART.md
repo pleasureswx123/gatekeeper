@@ -1,4 +1,4 @@
-# 守门人财法风控系统 - 快速启动指南
+# 明鉴财法风控系统 - 快速启动指南
 
 ## 一键启动 (Docker Compose)
 
@@ -302,3 +302,4 @@ docker-compose exec redis redis-cli
 - 📖 查看完整文档: `README.md`
 - 💬 API 文档: http://localhost:8000/docs
 - 🔧 Celery 监控: http://localhost:5555
+

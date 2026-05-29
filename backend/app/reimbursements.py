@@ -2,15 +2,15 @@
 FastAPI 报销管理 API 路由
 """
 from fastapi import APIRouter, Depends, File, HTTPException, status, Query, UploadFile
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import ReimbursementCreate, ReimbursementResponse
-from models import Invoice, Reimbursement, ReimbursementItem, User
+from models import AsyncTask, Invoice, Reimbursement, ReimbursementItem, User
 from services.business_logic import reimbursement_service
 from deps import get_current_user
 from utils.audit import write_audit_log
 from utils.file_handler import get_file_extension, get_file_size, save_upload_file
+from utils.file_response import build_file_response
 from config import settings
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -31,6 +31,10 @@ def can_access_reimbursement(user: User, reimbursement: Reimbursement) -> bool:
 
 def can_modify_reimbursement(user: User, reimbursement: Reimbursement) -> bool:
     return reimbursement.submitter_id == user.id and reimbursement.status in ("submitted", "pending_review")
+
+
+def can_delete_reimbursement(user: User, reimbursement: Reimbursement) -> bool:
+    return user.role == "admin" or reimbursement.submitter_id == user.id
 
 
 @router.post("/", response_model=ReimbursementResponse)
@@ -145,6 +149,66 @@ def get_reimbursement(
     return reimbursement
 
 
+@router.delete("/{reimbursement_id}")
+def delete_reimbursement(
+    reimbursement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """删除报销单"""
+    reimbursement = db.query(Reimbursement).filter(
+        Reimbursement.id == reimbursement_id
+    ).first()
+
+    if not reimbursement or not can_access_reimbursement(current_user, reimbursement):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reimbursement not found"
+        )
+    if not can_delete_reimbursement(current_user, reimbursement):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the submitter or admins can delete reimbursements"
+        )
+
+    receipt_paths = [
+        item.receipt_file_path
+        for item in reimbursement.items
+        if item.receipt_file_path
+    ]
+    write_audit_log(
+        db,
+        action="reimbursement_deleted",
+        resource_type="reimbursement",
+        resource_id=reimbursement.id,
+        user_id=current_user.id,
+        changes={
+            "reimbursement_number": reimbursement.reimbursement_number,
+            "total_amount": str(reimbursement.total_amount or 0),
+            "status": reimbursement.status,
+        },
+    )
+
+    tasks = db.query(AsyncTask).filter(
+        AsyncTask.resource_type == "reimbursement",
+        AsyncTask.resource_id == reimbursement_id,
+    ).all()
+    for task in tasks:
+        db.delete(task)
+
+    db.delete(reimbursement)
+    db.commit()
+
+    for receipt_path in receipt_paths:
+        if receipt_path and os.path.exists(receipt_path):
+            try:
+                os.remove(receipt_path)
+            except OSError:
+                pass
+
+    return {"reimbursement_id": reimbursement_id, "message": "Reimbursement deleted successfully"}
+
+
 @router.get("/", response_model=list[ReimbursementResponse])
 def list_reimbursements(
     skip: int = Query(0, ge=0),
@@ -249,10 +313,11 @@ async def upload_reimbursement_item_receipt(
 def download_reimbursement_item_receipt(
     reimbursement_id: int,
     item_id: int,
+    preview: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """下载报销明细收据/附件"""
+    """下载或预览报销明细收据/附件"""
     reimbursement = db.query(Reimbursement).filter(Reimbursement.id == reimbursement_id).first()
     if not reimbursement or not can_access_reimbursement(current_user, reimbursement):
         raise HTTPException(
@@ -270,10 +335,10 @@ def download_reimbursement_item_receipt(
             detail="Receipt file not found"
         )
 
-    return FileResponse(
+    return build_file_response(
         item.receipt_file_path,
         filename=os.path.basename(item.receipt_file_path),
-        media_type="application/octet-stream",
+        preview=preview,
     )
 
 

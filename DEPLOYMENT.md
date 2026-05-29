@@ -81,12 +81,58 @@ LOG_LEVEL=INFO
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_APP_NAME=守门人
+NEXT_PUBLIC_APP_NAME=明鉴
 ```
 
 ---
 
 ## 生产部署
+
+### 一键部署到服务器
+
+当前项目内置了可重复执行的部署脚本，适合首次部署，也适合后续需求迭代完成后再次发布。
+
+Windows PowerShell：
+
+```powershell
+./scripts/deploy.ps1
+```
+
+Linux/macOS：
+
+```bash
+./scripts/deploy.sh
+```
+
+默认部署目标：
+
+- SSH：`root@192.168.10.122`
+- 远端目录：`/opt/gatekeeper`
+- 前端：`http://192.168.10.122:3000`
+- API 文档：`http://192.168.10.122:8000/docs`
+- Flower：`http://192.168.10.122:5555`
+
+脚本会自动：
+
+1. 读取或创建本地 `deploy.env`
+2. 检查服务器端口 `3000/8000/5555/5432/6379` 是否被非本项目服务占用
+3. 打包当前工作区并上传到服务器
+4. 使用 `docker-compose.prod.yml` 重新 build 并 `up -d`
+5. 输出服务状态和访问地址
+
+如果端口冲突，先修改本地 `deploy.env` 里的端口，例如：
+
+```env
+FRONTEND_PORT=3001
+BACKEND_PORT=8001
+FLOWER_PORT=5556
+POSTGRES_PORT=15432
+REDIS_PORT=16379
+NEXT_PUBLIC_API_URL=http://192.168.10.122:8001/api
+ALLOWED_ORIGINS=http://192.168.10.122:3001
+```
+
+再重新执行部署脚本即可。
 
 ### Docker 容器部署
 
@@ -340,3 +386,4 @@ docker-compose restart celery
 - [README.md](./README.md)
 - [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)
 - [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)
+
