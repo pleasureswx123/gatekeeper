@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/config';
 
-const publicPaths = ['/login'];
+const publicPaths = ['/login', '/register'];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
