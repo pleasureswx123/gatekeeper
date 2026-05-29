@@ -23,9 +23,11 @@ class Token(BaseModel):
 @router.post("/register", response_model=UserResponse)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     """注册新用户"""
+    generated_email = f"{user.username}@local.gatekeeper"
+
     # 检查用户是否已存在
     existing_user = db.query(User).filter(
-        (User.username == user.username) | (User.email == user.email)
+        (User.username == user.username) | (User.email == generated_email)
     ).first()
     
     if existing_user:
@@ -37,10 +39,10 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     # 创建新用户
     db_user = User(
         username=user.username,
-        email=user.email,
+        email=generated_email,
         password_hash=hash_password(user.password),
-        full_name=user.full_name,
-        department=user.department,
+        full_name=user.username,
+        department="未设置",
         role="employee"
     )
     

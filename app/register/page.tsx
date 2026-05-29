@@ -11,9 +11,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     username: '',
-    email: '',
-    full_name: '',
-    department: '',
     password: '',
     confirmPassword: '',
   });
@@ -37,9 +34,6 @@ export default function RegisterPage() {
     try {
       await apiClient.post(API_ENDPOINTS.AUTH_REGISTER, {
         username: formData.username,
-        email: formData.email,
-        full_name: formData.full_name,
-        department: formData.department,
         password: formData.password,
       });
 
@@ -82,44 +76,6 @@ export default function RegisterPage() {
                 maxLength={100}
                 required
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-[#f7f3ee] mb-2">邮箱</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => updateField('email', e.target.value)}
-                placeholder="name@example.com"
-                className="w-full px-4 py-2 bg-white/[0.07] border border-white/10 rounded-md text-[#f7f3ee] placeholder-[#8e8582] focus:outline-none focus:border-[#c9b4fa] focus:ring-1 focus:ring-[#c9b4fa] transition"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-[#f7f3ee] mb-2">姓名</label>
-                <input
-                  type="text"
-                  value={formData.full_name}
-                  onChange={(e) => updateField('full_name', e.target.value)}
-                  placeholder="真实姓名"
-                  className="w-full px-4 py-2 bg-white/[0.07] border border-white/10 rounded-md text-[#f7f3ee] placeholder-[#8e8582] focus:outline-none focus:border-[#c9b4fa] focus:ring-1 focus:ring-[#c9b4fa] transition"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#f7f3ee] mb-2">部门</label>
-                <input
-                  type="text"
-                  value={formData.department}
-                  onChange={(e) => updateField('department', e.target.value)}
-                  placeholder="所属部门"
-                  className="w-full px-4 py-2 bg-white/[0.07] border border-white/10 rounded-md text-[#f7f3ee] placeholder-[#8e8582] focus:outline-none focus:border-[#c9b4fa] focus:ring-1 focus:ring-[#c9b4fa] transition"
-                  required
-                />
-              </div>
             </div>
 
             <div>

@@ -15,7 +15,8 @@ class UserBase(BaseModel):
     department: str
 
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
+    username: str = Field(..., min_length=3, max_length=100)
     password: str = Field(..., min_length=6)
 
 
