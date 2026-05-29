@@ -39,7 +39,15 @@ class VolcanoEngineClient:
             },
             timeout=60,
         )
-        response.raise_for_status()
+        if not response.ok:
+            try:
+                error_body = response.json()
+                message = error_body.get("error", {}).get("message") or response.text
+            except ValueError:
+                message = response.text
+            raise RuntimeError(
+                f"ARK API request failed ({response.status_code}): {message[:500]}"
+            )
         return response.json()
 
     @staticmethod

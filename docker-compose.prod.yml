@@ -1,0 +1,154 @@
+name: ${COMPOSE_PROJECT_NAME:-gatekeeper}
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-docker.m.daocloud.io/library/postgres:15-alpine}
+    container_name: ${COMPOSE_PROJECT_NAME:-gatekeeper}-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gatekeeper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gatekeeper123}
+      POSTGRES_DB: ${POSTGRES_DB:-gatekeeper_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gatekeeper} -d ${POSTGRES_DB:-gatekeeper_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: ${REDIS_IMAGE:-docker.m.daocloud.io/library/redis:7-alpine}
+    container_name: ${COMPOSE_PROJECT_NAME:-gatekeeper}-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.10-slim}
+    container_name: ${COMPOSE_PROJECT_NAME:-gatekeeper}-backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gatekeeper}:${POSTGRES_PASSWORD:-gatekeeper123}@postgres:5432/${POSTGRES_DB:-gatekeeper_db}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      ARK_API_KEY: ${ARK_API_KEY:-}
+      ARK_BASE_URL: ${ARK_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      ARK_CHAT_MODEL: ${ARK_CHAT_MODEL:-doubao-seed-2-0-lite-260428}
+      INVOICE_VERIFICATION_MODE: ${INVOICE_VERIFICATION_MODE:-mock}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      AUTO_CREATE_TABLES: ${AUTO_CREATE_TABLES:-True}
+      DEMO_USER_ENABLED: ${DEMO_USER_ENABLED:-True}
+      DEMO_USERNAME: ${DEMO_USERNAME:-demo}
+      DEMO_EMAIL: ${DEMO_EMAIL:-demo@gatekeeper.com}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo123}
+      BACKGROUND_TASK_MODE: ${BACKGROUND_TASK_MODE:-celery}
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5).raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 5
+    restart: unless-stopped
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.10-slim}
+    container_name: ${COMPOSE_PROJECT_NAME:-gatekeeper}-celery-worker
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gatekeeper}:${POSTGRES_PASSWORD:-gatekeeper123}@postgres:5432/${POSTGRES_DB:-gatekeeper_db}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      ARK_API_KEY: ${ARK_API_KEY:-}
+      ARK_BASE_URL: ${ARK_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      ARK_CHAT_MODEL: ${ARK_CHAT_MODEL:-doubao-seed-2-0-lite-260428}
+      INVOICE_VERIFICATION_MODE: ${INVOICE_VERIFICATION_MODE:-mock}
+      UPLOAD_DIR: /app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+    command: celery -A celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-4}
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  celery_flower:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.10-slim}
+    container_name: ${COMPOSE_PROJECT_NAME:-gatekeeper}-celery-flower
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: celery -A celery_app flower --port=5555
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5555', timeout=5).raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-docker.m.daocloud.io/library/node:22-alpine}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
+    container_name: ${COMPOSE_PROJECT_NAME:-gatekeeper}-frontend
+    environment:
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:

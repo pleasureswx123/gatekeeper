@@ -50,9 +50,9 @@ export function Navigation() {
       <div className="p-5 border-b border-sidebar-border">
         <h1 className="text-lg font-semibold text-sidebar-foreground flex items-center gap-3">
           <div className="w-8 h-8 rounded-md bg-sidebar-primary flex items-center justify-center shadow-sm">
-            <span className="text-sidebar-primary-foreground font-semibold text-sm">G</span>
+            <span className="text-sidebar-primary-foreground font-semibold text-sm">明</span>
           </div>
-          守门人
+          明鉴
         </h1>
         <p className="text-xs text-sidebar-foreground/58 mt-2 pl-11">财法风控系统</p>
       </div>
@@ -134,3 +134,4 @@ function getRoleLabel(role: User['role']) {
       return '员工';
   }
 }
+

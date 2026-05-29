@@ -1,5 +1,5 @@
 """
-PostgreSQL 数据库 Schema - 守门人财法风控系统
+PostgreSQL 数据库 Schema - 明鉴财法风控系统
 六大表族: 用户、合同、报销、发票、异步任务、审计日志
 """
 
@@ -322,3 +322,4 @@ SELECT
     SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as error_count,
     AVG(ocr_confidence) as avg_ocr_confidence
 FROM invoices;
+

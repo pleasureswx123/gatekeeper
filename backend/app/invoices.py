@@ -1,14 +1,14 @@
 """
 FastAPI 发票管理 API 路由
 """
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Query
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import InvoiceResponse, InvoiceUpload, InvoiceBatchVerifyRequest
-from models import Invoice, AsyncTask, User
+from models import AsyncTask, Invoice, ReimbursementItem, User
 from services.business_logic import invoice_service
 from utils.file_handler import save_upload_file, get_file_extension, get_file_size
+from utils.file_response import build_file_response
 from tasks.celery_tasks import invoice_ocr_recognition, invoice_verify_authenticity
 from config import settings
 from deps import get_current_user
@@ -24,7 +24,7 @@ INVOICE_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
 @router.post("/upload")
 async def upload_invoice(
     file: UploadFile = File(...),
-    invoice_type: str = "normal",
+    invoice_type: str = Form("normal"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -112,13 +112,68 @@ def get_invoice(
     return invoice
 
 
-@router.get("/{invoice_id}/file")
-def download_invoice_file(
+@router.delete("/{invoice_id}")
+def delete_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """下载发票原始文件"""
+    """删除发票"""
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+
+    if not invoice or (current_user.role != "admin" and invoice.upload_user_id != current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found"
+        )
+
+    file_path = invoice.file_path
+    write_audit_log(
+        db,
+        action="invoice_deleted",
+        resource_type="invoice",
+        resource_id=invoice.id,
+        user_id=current_user.id,
+        changes={
+            "invoice_number": invoice.invoice_number,
+            "file_name": invoice.file_name,
+        },
+    )
+
+    db.query(ReimbursementItem).filter(
+        ReimbursementItem.invoice_id == invoice_id,
+    ).update({ReimbursementItem.invoice_id: None}, synchronize_session=False)
+    db.query(Invoice).filter(
+        Invoice.duplicate_invoice_id == invoice_id,
+    ).update({Invoice.duplicate_invoice_id: None}, synchronize_session=False)
+
+    tasks = db.query(AsyncTask).filter(
+        AsyncTask.resource_type == "invoice",
+        AsyncTask.resource_id == invoice_id,
+    ).all()
+    for task in tasks:
+        db.delete(task)
+
+    db.delete(invoice)
+    db.commit()
+
+    if file_path and os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+
+    return {"invoice_id": invoice_id, "message": "Invoice deleted successfully"}
+
+
+@router.get("/{invoice_id}/file")
+def download_invoice_file(
+    invoice_id: int,
+    preview: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """下载或预览发票原始文件"""
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
 
     if not invoice or (current_user.role != "admin" and invoice.upload_user_id != current_user.id):
@@ -133,10 +188,10 @@ def download_invoice_file(
             detail="Invoice file not found"
         )
 
-    return FileResponse(
+    return build_file_response(
         invoice.file_path,
         filename=invoice.file_name or f"invoice-{invoice_id}{get_file_extension(invoice.file_path)}",
-        media_type="application/octet-stream",
+        preview=preview,
     )
 
 
@@ -227,7 +282,7 @@ def verify_invoice(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """验证发票真伪"""
+    """验证发票真伪（待接入腾讯发票核验服务）"""
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     
     if not invoice or (current_user.role != "admin" and invoice.upload_user_id != current_user.id):
@@ -236,45 +291,10 @@ def verify_invoice(
             detail="Invoice not found"
         )
 
-    if invoice.ocr_status != "completed":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invoice OCR must be completed before verification"
-        )
-    
-    task_id = str(uuid.uuid4())
-    db.add(AsyncTask(
-        task_id=task_id,
-        task_type="invoice_verification",
-        status="pending",
-        resource_type="invoice",
-        resource_id=invoice_id,
-    ))
-    db.commit()
-
-    write_audit_log(
-        db,
-        action="invoice_verification_started",
-        resource_type="invoice",
-        resource_id=invoice_id,
-        user_id=current_user.id,
-        changes={
-            "invoice_number": invoice.invoice_number,
-            "task_id": task_id,
-        },
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="发票真伪验证暂未接入。后续将通过腾讯发票核验服务实现；当前仅执行大模型发票识别。"
     )
-
-    if settings.BACKGROUND_TASK_MODE == "inline":
-        invoice_verify_authenticity.apply(args=[invoice_id], task_id=task_id)
-    else:
-        invoice_verify_authenticity.apply_async(args=[invoice_id], task_id=task_id)
-    
-    return {
-        "invoice_id": invoice_id,
-        "task_id": task_id,
-        "status": "verification_started",
-        "message": "Invoice verification task started"
-    }
 
 
 @router.get("/{invoice_id}/ocr-status")

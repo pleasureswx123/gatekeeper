@@ -57,9 +57,9 @@ export default function LoginPage() {
         {/* 品牌区域 */}
         <div className="mb-8 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-md bg-[#c9b4fa] mb-4 shadow-sm">
-            <span className="text-2xl font-semibold text-[#1b1938]">G</span>
+            <span className="text-2xl font-semibold text-[#1b1938]">明</span>
           </div>
-          <h1 className="text-3xl font-semibold text-[#f7f3ee] mb-2">守门人</h1>
+          <h1 className="text-3xl font-semibold text-[#f7f3ee] mb-2">明鉴</h1>
           <p className="text-[#c9c1bb]">财法风控系统</p>
           <p className="text-[#8e8582] text-sm mt-2">智能合同审核 · 发票验证 · 报销审批</p>
         </div>
@@ -144,7 +144,7 @@ export default function LoginPage() {
         {/* 底部链接 */}
         <div className="mt-6 text-center text-sm text-[#8e8582]">
           <p>
-            © 2024 守门人财法风控系统<br/>
+            © 2026 明鉴财法风控系统<br/>
             <a href="#" className="text-[#c9b4fa] hover:text-[#d7c7ff] transition">隐私政策</a> · 
             <a href="#" className="text-[#c9b4fa] hover:text-[#d7c7ff] transition"> 服务条款</a>
           </p>
@@ -153,3 +153,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

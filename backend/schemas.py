@@ -168,7 +168,7 @@ class InvoiceResponse(BaseModel):
     invoice_amount: Optional[Decimal]
     tax_amount: Optional[Decimal]
     total_amount: Optional[Decimal]
-    invoice_date: Optional[str]
+    invoice_date: Optional[date]
     status: str
     ocr_status: str
     validation_status: str
@@ -255,7 +255,7 @@ class TaskProgressResponse(BaseModel):
     task_id: str
     status: str
     progress_percentage: int
-    current_step: str
+    current_step: Optional[str] = None
     status_message: Optional[str]
 
     class Config:

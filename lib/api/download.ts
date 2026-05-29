@@ -14,10 +14,21 @@ export async function downloadAuthenticatedFile(path: string, fallbackFilename: 
 }
 
 export async function previewAuthenticatedFile(path: string, fallbackFilename: string) {
-  const { blob } = await fetchAuthenticatedFile(path, fallbackFilename);
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank', 'noopener,noreferrer');
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  const previewWindow = window.open('', '_blank', 'noopener,noreferrer');
+  if (!previewWindow) {
+    throw new Error('浏览器拦截了预览窗口，请允许弹窗后重试');
+  }
+
+  try {
+    previewWindow.document.write('<p style="font-family: sans-serif">正在加载文件预览...</p>');
+    const { blob } = await fetchAuthenticatedFile(withPreviewQuery(path), fallbackFilename);
+    const url = URL.createObjectURL(blob);
+    previewWindow.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (error) {
+    previewWindow.close();
+    throw error;
+  }
 }
 
 async function fetchAuthenticatedFile(path: string, fallbackFilename: string) {
@@ -44,4 +55,8 @@ function getFilenameFromDisposition(disposition: string | null) {
 
   const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
   return plainMatch?.[1] || null;
+}
+
+function withPreviewQuery(path: string) {
+  return path.includes('?') ? `${path}&preview=true` : `${path}?preview=true`;
 }

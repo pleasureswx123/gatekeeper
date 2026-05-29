@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 守门人财法风控系统 - 快速启动脚本"
+echo "🚀 明鉴财法风控系统 - 快速启动脚本"
 echo "=========================================="
 echo ""
 
@@ -61,3 +61,4 @@ echo "   • 邮箱: demo@gatekeeper.com"
 echo "   • 密码: demo123"
 echo ""
 echo "📚 更多信息请查看: README.md"
+

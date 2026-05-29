@@ -5,7 +5,7 @@ import { AuthGuard } from '@/components/AuthGuard'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: '守门人财法风控系统',
+  title: '明鉴财法风控系统',
   description: '智能合同审核、发票验证、报销审批一体化平台',
   generator: 'v0.app',
   icons: {
@@ -43,3 +43,4 @@ export default function RootLayout({
     </html>
   )
 }
+

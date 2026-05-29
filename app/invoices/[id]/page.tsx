@@ -124,11 +124,12 @@ export default function InvoiceDetailPage() {
                   </button>
                   <button
                     onClick={handleVerify}
-                    disabled={isVerifying || invoice.ocr_status !== 'completed'}
+                    disabled
+                    title="发票真伪验证后续将接入腾讯服务"
                     className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
                   >
                     <RefreshCw className={`w-4 h-4 ${isVerifying ? 'animate-spin' : ''}`} />
-                    重新验真
+                    验真待接入
                   </button>
                 </div>
               )}
@@ -140,7 +141,9 @@ export default function InvoiceDetailPage() {
           {isLoading ? (
             <div className="text-muted-foreground">正在加载发票...</div>
           ) : error || !invoice ? (
-            <div className="text-red-400">发票加载失败，请确认后端服务已启动。</div>
+            <div className="text-red-400">
+              发票加载失败：{getApiErrorMessage(error) || '请稍后重试'}
+            </div>
           ) : (
             <>
               {actionError && (
@@ -204,8 +207,8 @@ export default function InvoiceDetailPage() {
               <div className="bg-card border border-border rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">验证结果</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Verification label="真伪验证" passed={invoice.authenticity_verified} text={invoice.authenticity_verified ? 'Mock 通过' : '待验证'} />
-                  <Verification label="验真方式" passed={Boolean(invoice.verification_method)} text={invoice.verification_method || '未执行'} />
+                  <Verification label="真伪验证" passed={false} text="待接入腾讯服务" />
+                  <Verification label="验真方式" passed={false} text="未执行" />
                   <Verification label="作废状态" passed={!invoice.is_voided} text={invoice.is_voided ? '已作废' : '未作废'} />
                   <Verification label="重复检测" passed={!invoice.is_duplicate} text={invoice.is_duplicate ? '重复发票' : '未重复'} />
                 </div>
@@ -295,6 +298,8 @@ function getInvoiceStatusLabel(status: string) {
       return '识别失败';
     case 'processing':
       return '处理中';
+    case 'pending':
+      return '待真实验真';
     default:
       return '待处理';
   }
@@ -324,4 +329,13 @@ function getTaskStatusLabel(status: string) {
     default:
       return '待处理';
   }
+}
+
+function getApiErrorMessage(error: any) {
+  if (!error) return '';
+  const detail = error.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) return detail.map((item) => item.msg || item.message).filter(Boolean).join('；');
+  if (error.response?.status >= 500) return '服务器处理发票数据时出错';
+  return error.message || '';
 }
