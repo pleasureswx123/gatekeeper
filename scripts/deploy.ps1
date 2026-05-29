@@ -118,6 +118,7 @@ if [ -n "`$conflicts" ]; then
   exit 23
 fi
 "@
+  $remoteCheck = $remoteCheck -replace "`r`n", "`n"
   Write-Host "Checking target ports: $($ports -join ', ')"
   ssh $sshTarget $remoteCheck
   Assert-LastExit "Port check"
@@ -164,6 +165,7 @@ echo "Frontend: http://${HostName}:`${FRONTEND_PORT:-3000}"
 echo "API docs: http://${HostName}:`${BACKEND_PORT:-8000}/docs"
 echo "Flower:   http://${HostName}:`${FLOWER_PORT:-5555}"
 "@
+  $remoteDeploy = $remoteDeploy -replace "`r`n", "`n"
 
   Write-Host "Deploying on remote server..."
   ssh $sshTarget $remoteDeploy
