@@ -80,7 +80,7 @@ export default function InvoiceUploadPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">上传发票</h1>
           <p className="text-muted-foreground">
-            上传发票文件进行 OCR 识别和真伪验证
+            上传发票文件后，系统会调用 AI OCR 提取票面字段；真实发票验真服务暂未接入
           </p>
         </div>
 
@@ -92,6 +92,11 @@ export default function InvoiceUploadPage() {
           <CardContent className="space-y-6">
             {!taskId ? (
               <>
+                <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-secondary/20 p-4 text-sm text-muted-foreground">
+                  <p><span className="font-medium text-foreground">系统会做：</span>用 AI OCR 识别发票号、金额、税额、开票日期、购销方和明细。</p>
+                  <p><span className="font-medium text-foreground">系统不会做：</span>当前不会联网完成真实发票验真，验真能力仍是待接入状态。</p>
+                </div>
+
                 {/* 文件上传区域 */}
                 <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer"
                      onClick={() => document.getElementById('file-input')?.click()}>
@@ -154,7 +159,7 @@ export default function InvoiceUploadPage() {
                           {progress?.status === 'completed' ? '发票识别完成' : progress?.status === 'failed' ? '发票识别失败' : '发票已上传'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {progress?.status === 'completed' ? 'OCR 识别和模拟验真已完成' : progress?.status === 'failed' ? '请查看错误信息后重新上传' : '正在进行 OCR 识别...'}
+                          {progress?.status === 'completed' ? 'AI OCR 字段识别已完成，真实验真仍需后续接入' : progress?.status === 'failed' ? '请查看错误信息后重新上传' : '正在调用 AI OCR 提取发票字段...'}
                         </p>
                       </div>
                     </div>

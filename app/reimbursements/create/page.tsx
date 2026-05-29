@@ -125,12 +125,17 @@ export default function CreateReimbursementPage() {
             </Link>
             <div>
               <h2 className="text-2xl font-bold text-foreground">创建报销单</h2>
-              <p className="text-sm text-muted-foreground mt-1">填写明细并关联已上传发票</p>
+              <p className="text-sm text-muted-foreground mt-1">填写报销明细，可关联已识别发票；提交后系统会执行规则校验</p>
             </div>
           </div>
         </div>
 
         <div className="p-8 max-w-5xl space-y-6">
+          <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground leading-6">
+            <p><span className="font-medium text-foreground">你正在做：</span>提交一张报销申请，逐项录入类别、说明、金额，并可选择关联已完成 OCR 的发票。</p>
+            <p><span className="font-medium text-foreground">系统随后会做：</span>按规则检查金额、发票关联、异常发票和凭证附件；这一步不是 AI 审批。</p>
+          </div>
+
           {error && (
             <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400">
               {error}

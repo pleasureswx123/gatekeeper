@@ -94,18 +94,23 @@ export default function ContractUploadPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">上传合同</h1>
           <p className="text-muted-foreground">
-            上传合同文件，系统将自动进行风险分析
+            上传合同文件后，系统会提取文本，执行规则检查，并调用 AI 做语义风险分析
           </p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>合同文件</CardTitle>
-            <CardDescription>支持 PDF 和 DOCX 格式，最大 50MB</CardDescription>
+            <CardDescription>支持 PDF 和 DOCX 格式，最大 50MB。扫描件图片暂不做合同 OCR。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {!taskId ? (
               <>
+                <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-secondary/20 p-4 text-sm text-muted-foreground">
+                  <p><span className="font-medium text-foreground">系统会做：</span>提取合同文本、运行内置风险规则、调用 AI 分析合同语义。</p>
+                  <p><span className="font-medium text-foreground">你会看到：</span>风险等级、风险分数、风险项、修复建议和模型返回原文。</p>
+                </div>
+
                 {/* 文件上传区域 */}
                 <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer"
                      onClick={() => document.getElementById('file-input')?.click()}>
@@ -205,7 +210,7 @@ export default function ContractUploadPage() {
                           {progress?.status === 'completed' ? '合同分析完成' : progress?.status === 'failed' ? '合同分析失败' : '合同已上传'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {progress?.status === 'completed' ? '智能分析已完成' : progress?.status === 'failed' ? '请查看错误信息后重新上传' : '正在进行智能分析...'}
+                          {progress?.status === 'completed' ? '规则检查和 AI 语义分析已完成' : progress?.status === 'failed' ? '请查看错误信息后重新上传' : '正在提取文本、运行规则并调用 AI 分析...'}
                         </p>
                       </div>
                     </div>
