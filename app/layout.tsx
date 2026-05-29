@@ -9,22 +9,9 @@ export const metadata: Metadata = {
   description: '智能合同审核、发票验证、报销审批一体化平台',
   generator: 'v0.app',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
-  },
+    icon: '/icon.png',
+    apple: '/icon.png',
+  }
 }
 
 export default function RootLayout({

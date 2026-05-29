@@ -6,6 +6,7 @@ import { Activity, ChevronRight, CreditCard, FileText, Home, LogOut, Receipt, Se
 import { apiClient } from '@/lib/api/client';
 import { useCurrentUser } from '@/hooks/useData';
 import type { User } from '@/types';
+import Image from "next/image"
 
 export function Navigation() {
   const router = useRouter();
@@ -46,6 +47,17 @@ export function Navigation() {
 
   return (
     <div className="flex h-screen w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+      <div className="flex h-14 shrink-0 items-center justify-center px-4 py-2 border-b border-sidebar-border">
+        <div className="relative w-[80%]" style={{ aspectRatio: '120/26' }}>
+          <Image
+              src="/logo.svg"
+              alt="莱博塔Logo"
+              fill
+              className="object-contain"
+              priority
+          />
+        </div>
+      </div>
       {/* 头部 */}
       <div className="p-5 border-b border-sidebar-border">
         <h1 className="text-lg font-semibold text-sidebar-foreground flex items-center gap-3">
