@@ -85,19 +85,23 @@ export function Navigation() {
           </Link>
         ))}
 
-        <div className="pt-4">
-          <p className="text-xs font-medium text-sidebar-foreground/48 px-3 py-2">系统</p>
-        </div>
+        {false && (
+          <>
+            <div className="pt-4">
+              <p className="text-xs font-medium text-sidebar-foreground/48 px-3 py-2">系统</p>
+            </div>
 
-        {systemItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link key={item.href} href={item.href} className={itemClass(isActive(item.href))}>
-              <Icon className="w-4 h-4" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+            {systemItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href} className={itemClass(isActive(item.href))}>
+                  <Icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* 底部用户菜单 */}
