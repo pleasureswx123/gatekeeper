@@ -91,7 +91,7 @@ export default function ReimbursementDetailPage() {
       await apiClient.uploadFile(API_ENDPOINTS.REIMBURSEMENTS_ITEM_RECEIPT(Number(id), itemId), formData);
       await fetchReimbursement();
     } catch (err: any) {
-      setError(err.response?.data?.detail || '收据上传失败，请重试');
+      setError(err.response?.data?.detail || '凭证附件上传失败，请重试');
     } finally {
       setReceiptUploadingItemId(null);
     }
@@ -103,7 +103,7 @@ export default function ReimbursementDetailPage() {
     try {
       await previewAuthenticatedFile(API_ENDPOINTS.REIMBURSEMENTS_ITEM_RECEIPT(Number(id), itemId), `receipt-${itemId}`);
     } catch (err: any) {
-      setError(err.message || '收据预览失败');
+      setError(err.message || '凭证附件预览失败');
     }
   };
 
@@ -113,7 +113,7 @@ export default function ReimbursementDetailPage() {
     try {
       await downloadAuthenticatedFile(API_ENDPOINTS.REIMBURSEMENTS_ITEM_RECEIPT(Number(id), itemId), `receipt-${itemId}`);
     } catch (err: any) {
-      setError(err.message || '收据下载失败');
+      setError(err.message || '凭证附件下载失败');
     }
   };
 
@@ -162,7 +162,7 @@ export default function ReimbursementDetailPage() {
             </Link>
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-foreground">{reimbursement.reimbursement_number}</h2>
-              <p className="text-sm text-muted-foreground mt-1">报销单详情、校验结果和审批操作</p>
+              <p className="text-sm text-muted-foreground mt-1">查看规则校验结果、凭证附件和审批处理记录</p>
             </div>
             {canVerify && (
               <button
@@ -183,6 +183,11 @@ export default function ReimbursementDetailPage() {
               {error}
             </div>
           )}
+
+          <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground leading-6">
+            <p><span className="font-medium text-foreground">系统已做：</span>按规则计算报销明细、关联发票金额、异常发票、重复发票和附件数量。</p>
+            <p><span className="font-medium text-foreground">需要人工判断：</span>报销事由是否合理、凭证是否可信、是否批准或拒绝。这里不是 AI 自动审批。</p>
+          </div>
 
           <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">基本信息</h3>
@@ -207,7 +212,7 @@ export default function ReimbursementDetailPage() {
 
           <div className="bg-card border border-border rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">三单合一校验</h3>
+              <h3 className="text-lg font-semibold text-foreground">票据一致性校验</h3>
               <span className={`px-3 py-1 rounded-full text-sm ${getVerificationColor(verification?.verification_status)}`}>
                 {getVerificationLabel(verification?.verification_status)}
               </span>
@@ -257,7 +262,7 @@ export default function ReimbursementDetailPage() {
                       </p>
                       <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                         <Paperclip className="w-3 h-3" />
-                        {item.receipt_file_path ? '已上传收据' : '未上传收据'}
+                        {item.receipt_file_path ? '已上传凭证附件' : '未上传凭证附件'}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 lg:justify-end">
@@ -284,7 +289,7 @@ export default function ReimbursementDetailPage() {
                       {canUploadReceipt && (
                         <label className="flex items-center gap-1 px-3 py-2 text-sm bg-primary/10 text-primary border border-primary/30 rounded-lg hover:bg-primary/20 cursor-pointer">
                           <Upload className="w-4 h-4" />
-                          {receiptUploadingItemId === item.id ? '上传中...' : item.receipt_file_path ? '替换收据' : '上传收据'}
+                          {receiptUploadingItemId === item.id ? '上传中...' : item.receipt_file_path ? '替换附件' : '上传附件'}
                           <input
                             type="file"
                             accept=".pdf,.png,.jpg,.jpeg"

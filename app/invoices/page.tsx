@@ -5,14 +5,18 @@
 
 import { useState } from 'react';
 import { Navigation } from '@/components/Navigation';
-import { Receipt, Plus, Search, CheckCircle2, AlertCircle, Clock, Eye } from 'lucide-react';
+import { ProcessHint } from '@/components/ProcessHint';
+import { Receipt, Plus, Search, CheckCircle2, AlertCircle, Clock, Eye, Trash2, Upload, ScanLine, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useInvoices } from '@/hooks/useData';
+import { apiClient } from '@/lib/api/client';
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 export default function InvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const { invoices = [], isLoading, error } = useInvoices(0, 50, filterStatus === 'all' ? undefined : filterStatus);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const { invoices = [], isLoading, error, mutate } = useInvoices(0, 50, filterStatus === 'all' ? undefined : filterStatus);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -49,6 +53,25 @@ export default function InvoicesPage() {
       (invoice.issuer_name || '').toLowerCase().includes(term);
   });
 
+  const handleDeleteInvoice = async (event: React.MouseEvent, invoiceId: number, invoiceLabel: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!window.confirm(`确定删除「${invoiceLabel}」吗？删除后不可恢复。`)) {
+      return;
+    }
+
+    try {
+      setDeletingId(invoiceId);
+      await apiClient.delete(API_ENDPOINTS.INVOICES_DELETE(invoiceId));
+      await mutate();
+    } catch (error) {
+      window.alert('删除发票失败，请稍后重试');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-background">
       <Navigation />
@@ -59,8 +82,15 @@ export default function InvoicesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-foreground">发票管理</h2>
-                <p className="text-sm text-muted-foreground mt-1">共 {invoices.length} 份发票，{filteredInvoices.length} 份符合条件</p>
+                <p className="text-sm text-muted-foreground mt-1">上传发票后，系统用 AI OCR 提取结构化字段，并做重复、作废等状态展示</p>
               </div>
+              <ProcessHint
+                steps={[
+                  { label: '上传发票', icon: Upload },
+                  { label: 'AI 识别发票', icon: ScanLine },
+                  { label: '验真待接入', icon: ShieldCheck },
+                ]}
+              />
               <Link href="/invoices/upload">
                 <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition">
                   <Plus className="w-4 h-4" />
@@ -72,6 +102,12 @@ export default function InvoicesPage() {
         </div>
 
         <div className="p-8 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <GuidanceBox title="系统在做什么" text="把发票图片或 PDF 首页交给 AI OCR，提取发票号、代码、日期、购销方、金额、税额和明细。" />
+            <GuidanceBox title="哪里用了 AI" text="AI 只用于发票字段识别；真伪验证目前未接入真实外部服务，页面会显示待验或 Mock 状态。" />
+            <GuidanceBox title="你要看什么" text="重点核对 OCR 字段、金额、重复标记、作废状态，再决定是否用于报销关联。" />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <StatCard label="总发票数" value={invoices.length} icon={Receipt} />
             <StatCard label="已验证" value={invoices.filter((i) => i.status === 'verified').length} icon={CheckCircle2} />
@@ -115,9 +151,10 @@ export default function InvoicesPage() {
               </div>
             ) : (
               filteredInvoices.map((invoice) => (
-                <Link key={invoice.id} href={`/invoices/${invoice.id}`}>
-                  <div className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 hover:bg-secondary/10 transition cursor-pointer">
-                    <div className="flex items-center justify-between">
+                <div key={invoice.id} className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 hover:bg-secondary/10 transition">
+                  <div className="flex items-center justify-between gap-3">
+                    <Link href={`/invoices/${invoice.id}`} className="flex-1">
+                      <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3">
                           <Receipt className="w-5 h-5 text-primary" />
@@ -160,12 +197,22 @@ export default function InvoicesPage() {
                         </div>
                       </div>
 
-                      <button className="p-2 hover:bg-secondary/50 rounded-lg transition">
+                      <div className="p-2 hover:bg-secondary/50 rounded-lg transition">
                         <Eye className="w-5 h-5 text-muted-foreground" />
-                      </button>
+                      </div>
                     </div>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={(event) => handleDeleteInvoice(event, invoice.id, invoice.invoice_number || `发票 #${invoice.id}`)}
+                      disabled={deletingId === invoice.id}
+                      title="删除发票"
+                      className="p-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg transition disabled:opacity-50"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
-                </Link>
+                </div>
               ))
             )}
           </div>
@@ -196,6 +243,15 @@ function StatCard({ label, value, icon: Icon }: any) {
           <Icon className="w-5 h-5 text-primary" />
         </div>
       </div>
+    </div>
+  );
+}
+
+function GuidanceBox({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="bg-card border border-border rounded-lg p-4">
+      <p className="text-sm font-semibold text-foreground mb-2">{title}</p>
+      <p className="text-sm text-muted-foreground leading-6">{text}</p>
     </div>
   );
 }

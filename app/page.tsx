@@ -78,13 +78,13 @@ export default function Dashboard() {
             />
             <QuickActionCard
               title="发票验证"
-              description="OCR 识别和模拟验真"
+              description="AI OCR 识别票面字段，真实验真待接入"
               href="/invoices/upload"
               icon={<Receipt className="w-7 h-7" />}
             />
             <QuickActionCard
               title="报销审批"
-              description="三单合一自动校验"
+              description="规则校验金额、发票和凭证，再人工审批"
               href="/reimbursements"
               icon={<CreditCard className="w-7 h-7" />}
             />
@@ -248,7 +248,7 @@ function getAuditMeta(log: AuditLog) {
     case 'reimbursement_rejected':
       return { title: `报销单已拒绝：${resourceName}`, resourceLabel: '报销', status: '已拒绝' };
     case 'reimbursement_receipt_uploaded':
-      return { title: `报销收据已上传：${resourceName}`, resourceLabel: '报销', status: '已上传' };
+      return { title: `报销凭证附件已上传：${resourceName}`, resourceLabel: '报销', status: '已上传' };
     default:
       return { title: log.action, resourceLabel: getResourceLabel(log.resource_type), status: '已记录' };
   }
