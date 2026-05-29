@@ -13,7 +13,6 @@ class UserBase(BaseModel):
     email: EmailStr
     full_name: str
     department: str
-    role: str = "employee"
 
 
 class UserCreate(UserBase):
@@ -28,6 +27,7 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    role: str
     is_active: bool
     created_at: datetime
 

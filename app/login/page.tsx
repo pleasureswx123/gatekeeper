@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/config';
@@ -130,6 +131,13 @@ export default function LoginPage() {
           >
             {isLoading ? '加载中...' : '使用演示账号登录'}
           </button>
+
+          <div className="mt-5 text-center text-sm text-[#c9c1bb]">
+            还没有账号？
+            <Link href="/register" className="ml-1 text-[#c9b4fa] hover:text-[#d7c7ff] transition">
+              立即注册
+            </Link>
+          </div>
         </div>
 
         {/* 信息提示 */}
